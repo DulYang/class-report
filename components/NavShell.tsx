@@ -13,6 +13,7 @@ const COACH_SECTIONS = [
 const ADMIN_SECTIONS = [
   { href: "/admin", label: "Overview", exact: true },
   { href: "/admin/schools", label: "Schools & Grades" },
+  { href: "/admin/grades", label: "Grades" },
   { href: "/admin/coaches", label: "Coaches" },
   { href: "/admin/students", label: "Students" },
   { href: "/admin/curriculum", label: "Curriculum" },
