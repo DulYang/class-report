@@ -116,7 +116,7 @@ export default function ReportCardGrid({
 
             <div className="grid grid-cols-2 gap-3">
               <FieldBlock label={session1Date}>
-                <AttendanceSelect
+                <AttendanceButtons
                   value={row.attendance_session1}
                   label={`${row.student_name} attendance for ${session1Date}`}
                   onChange={(v) =>
@@ -127,7 +127,7 @@ export default function ReportCardGrid({
               </FieldBlock>
               {session2Date && (
                 <FieldBlock label={session2Date}>
-                  <AttendanceSelect
+                  <AttendanceButtons
                     value={row.attendance_session2}
                     label={`${row.student_name} attendance for ${session2Date}`}
                     onChange={(v) =>
@@ -138,7 +138,7 @@ export default function ReportCardGrid({
                 </FieldBlock>
               )}
               <FieldBlock label="Assessment">
-                <ScoreSelect
+                <ScoreButtons
                   value={row.assessment}
                   label={`${row.student_name} assessment`}
                   onChange={(v) => update(row.student_id, { assessment: v })}
@@ -146,7 +146,7 @@ export default function ReportCardGrid({
                 />
               </FieldBlock>
               <FieldBlock label="Right behaviour">
-                <ScoreSelect
+                <ScoreButtons
                   value={row.right_behavior}
                   label={`${row.student_name} right behaviour`}
                   onChange={(v) => update(row.student_id, { right_behavior: v })}
@@ -170,7 +170,7 @@ export default function ReportCardGrid({
       </div>
 
       <div className="hidden overflow-x-auto rounded-lg border border-neutral-200 md:block">
-        <table className="w-full min-w-[820px] border-collapse text-sm">
+        <table className="w-full min-w-[960px] border-collapse text-sm">
           <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
             <tr>
               <th className="px-3 py-2 font-semibold">Student</th>
@@ -195,7 +195,7 @@ export default function ReportCardGrid({
                   )}
                 </td>
                 <td className="px-3 py-2 align-top">
-                  <AttendanceSelect
+                  <AttendanceButtons
                     value={row.attendance_session1}
                     label={`${row.student_name} attendance for ${session1Date}`}
                     onChange={(v) => update(row.student_id, { attendance_session1: v })}
@@ -203,7 +203,7 @@ export default function ReportCardGrid({
                 </td>
                 {session2Date && (
                   <td className="px-3 py-2 align-top">
-                    <AttendanceSelect
+                    <AttendanceButtons
                       value={row.attendance_session2}
                       label={`${row.student_name} attendance for ${session2Date}`}
                       onChange={(v) =>
@@ -213,14 +213,14 @@ export default function ReportCardGrid({
                   </td>
                 )}
                 <td className="px-3 py-2 align-top">
-                  <ScoreSelect
+                  <ScoreButtons
                     value={row.assessment}
                     label={`${row.student_name} assessment`}
                     onChange={(v) => update(row.student_id, { assessment: v })}
                   />
                 </td>
                 <td className="px-3 py-2 align-top">
-                  <ScoreSelect
+                  <ScoreButtons
                     value={row.right_behavior}
                     label={`${row.student_name} right behaviour`}
                     onChange={(v) => update(row.student_id, { right_behavior: v })}
@@ -303,7 +303,64 @@ function StatusPill({ filled, total }: { filled: number; total: number }) {
   );
 }
 
-function AttendanceSelect({
+/**
+ * A segmented group of buttons, one tap per choice. These were dropdowns; on a
+ * phone that cost three interactions (open, scroll, pick) for what is a
+ * two-to-four-way choice a coach makes for every student on the roster.
+ */
+function Segmented<T extends string | number>({
+  options,
+  value,
+  label,
+  onChange,
+  toneFor,
+  full,
+}: {
+  options: readonly T[];
+  value: T;
+  label: string;
+  onChange: (v: T) => void;
+  /** Classes for the selected button — carries the P/A and 1–4 colour coding. */
+  toneFor: (option: T) => string;
+  /** Fill the container with touch-sized buttons — the mobile layout. */
+  full?: boolean;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={`inline-flex overflow-hidden rounded-md border border-neutral-300 ${
+        full ? "w-full" : ""
+      }`}
+    >
+      {options.map((option, i) => {
+        const selected = option === value;
+        return (
+          <button
+            key={String(option)}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(option)}
+            className={`min-h-11 px-3 text-sm font-semibold transition-colors md:min-h-0 md:py-1.5 ${
+              full ? "flex-1" : ""
+            } ${i > 0 ? "border-l border-neutral-300" : ""} ${
+              selected
+                ? toneFor(option)
+                : "bg-white text-neutral-500 hover:bg-neutral-50"
+            }`}
+          >
+            {option}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const ATTENDANCE_OPTIONS: readonly Attendance[] = ["P", "A"];
+
+function AttendanceButtons({
   value,
   label,
   onChange,
@@ -312,37 +369,33 @@ function AttendanceSelect({
   value: Attendance;
   label: string;
   onChange: (v: Attendance) => void;
-  /** Fill the container and take a touch-sized height — the mobile layout. */
   full?: boolean;
 }) {
   return (
-    <select
-      aria-label={label}
+    <Segmented
+      options={ATTENDANCE_OPTIONS}
       value={value}
-      onChange={(e) => onChange(e.target.value === "A" ? "A" : "P")}
-      className={`rounded-md border font-medium ${
-        full ? "min-h-11 w-full px-2 py-2 text-base" : "w-20 px-2 py-1.5"
-      } ${
-        value === "A"
-          ? "border-red-300 bg-red-50 text-red-800"
-          : "border-emerald-300 bg-emerald-50 text-emerald-800"
-      }`}
-    >
-      <option value="P">P</option>
-      <option value="A">A</option>
-    </select>
+      label={label}
+      onChange={onChange}
+      full={full}
+      toneFor={(option) =>
+        option === "A"
+          ? "bg-red-600 text-white"
+          : "bg-emerald-600 text-white"
+      }
+    />
   );
 }
 
 /** Shades from 1 (lowest) to 4 (highest) so a filled grid reads at a glance. */
 const SCORE_TONE: Record<Score, string> = {
-  1: "border-neutral-300 bg-white text-neutral-700",
-  2: "border-sky-300 bg-sky-50 text-sky-800",
-  3: "border-indigo-300 bg-indigo-50 text-indigo-800",
-  4: "border-emerald-300 bg-emerald-50 text-emerald-800",
+  1: "bg-neutral-500 text-white",
+  2: "bg-sky-600 text-white",
+  3: "bg-indigo-600 text-white",
+  4: "bg-emerald-600 text-white",
 };
 
-function ScoreSelect({
+function ScoreButtons({
   value,
   label,
   onChange,
@@ -351,23 +404,17 @@ function ScoreSelect({
   value: Score;
   label: string;
   onChange: (v: Score) => void;
-  /** Fill the container and take a touch-sized height — the mobile layout. */
   full?: boolean;
 }) {
   return (
-    <select
-      aria-label={label}
+    <Segmented
+      options={SCORES}
       value={value}
-      onChange={(e) => onChange(toScore(e.target.value))}
-      className={`rounded-md border font-medium ${
-        full ? "min-h-11 w-full px-2 py-2 text-base" : "w-20 px-2 py-1.5"
-      } ${SCORE_TONE[value]}`}
-    >
-      {SCORES.map((s) => (
-        <option key={s} value={s}>
-          {s}
-        </option>
-      ))}
-    </select>
+      label={label}
+      onChange={(v) => onChange(toScore(v))}
+      full={full}
+      toneFor={(option) => SCORE_TONE[option]}
+    />
   );
 }
+
