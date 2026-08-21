@@ -1,5 +1,16 @@
 export type Attendance = "P" | "A";
 
+/** Assessment and right behaviour are scored 1–4. 1 is the default. */
+export type Score = 1 | 2 | 3 | 4;
+
+export const SCORES: Score[] = [1, 2, 3, 4];
+export const DEFAULT_SCORE: Score = 1;
+
+export function toScore(value: unknown): Score {
+  const n = typeof value === "number" ? value : Number.parseInt(String(value), 10);
+  return n === 2 || n === 3 || n === 4 ? n : DEFAULT_SCORE;
+}
+
 export type Role = "coach" | "admin";
 
 export type Coach = {
@@ -26,6 +37,15 @@ export type Grade = {
   created_at: string;
 };
 
+/** A coach owns a grade at a school and inherits every session scheduled for it. */
+export type CoachAssignment = {
+  id: string;
+  coach_id: string;
+  school_id: string;
+  grade_id: string;
+  created_at: string;
+};
+
 /** A curriculum targets one grade of one school and owns its lesson plans. */
 export type Curriculum = {
   id: string;
@@ -40,7 +60,6 @@ export type LessonPlan = {
   curriculum_id: string;
   title: string;
   sort_order: number;
-  user_id: string | null;
   created_at: string;
 };
 
@@ -64,21 +83,12 @@ export type SyllabusEntry = {
   created_at: string;
 };
 
-/** Which coaches work at which school. Admin-assigned only. */
-export type CoachSchool = {
+/** Students belong to a school and a grade — there is no class. */
+export type Student = {
   id: string;
-  coach_id: string;
-  school_id: string;
-  created_at: string;
-};
-
-export type Class = {
-  id: string;
-  coach_id: string | null;
-  name: string;
   school_id: string;
   grade_id: string;
-  user_id: string | null;
+  name: string;
   created_at: string;
 };
 
@@ -88,39 +98,31 @@ export type ReportCard = {
   student_id: string;
   attendance_session1: Attendance;
   attendance_session2: Attendance;
-  assessment: string | null;
-  right_behavior: string | null;
+  assessment: Score;
+  right_behavior: Score;
   notes: string | null;
-  user_id: string | null;
   created_at: string;
   updated_at: string;
 };
 
-export type Student = {
-  id: string;
-  class_id: string;
-  name: string;
-  user_id: string | null;
-  created_at: string;
-};
-
 export type FillStatus = "empty" | "partial" | "complete";
 
-/** A syllabus entry as it applies to one particular class. */
-export type ScheduledLesson = {
+/** A syllabus entry resolved to the school + grade whose students it covers. */
+export type ScheduledSession = {
   entry: SyllabusEntry;
   lesson_plan: LessonPlan;
+  school: School | null;
+  grade: Grade | null;
   student_count: number;
   filled_count: number;
   status: FillStatus;
 };
 
-export type ClassWithSchedule = Class & {
+/** The weekly view is organised by coach, via their grade assignments. */
+export type CoachSchedule = {
   coach: Coach | null;
-  school: School | null;
-  grade: Grade | null;
-  student_count: number;
-  lessons: ScheduledLesson[];
+  grades: { school: School | null; grade: Grade | null }[];
+  sessions: ScheduledSession[];
 };
 
 export type ReportCardRow = {
@@ -128,8 +130,8 @@ export type ReportCardRow = {
   student_name: string;
   attendance_session1: Attendance;
   attendance_session2: Attendance;
-  assessment: string;
-  right_behavior: string;
+  assessment: Score;
+  right_behavior: Score;
   notes: string;
   saved: boolean;
 };

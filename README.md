@@ -6,15 +6,26 @@ duplicating paper report cards into spreadsheets.
 
 ## The core job
 
-1. **Weekly View** — this week's classes, each with its lesson plans and a fill
-   status badge (Empty / Partial / Complete).
-2. Click a lesson plan → the **report card grid** loads every student in that
-   class, pre-filled with anything already saved.
-3. Set P/A for both sessions, type assessment / right behaviour / notes, **Save**.
-4. Come back later, change one student's notes, save again — values persist.
-5. **Reports** shows every saved card read-only for admins, filterable by class.
+1. **Weekly View** — this week's sessions, grouped by the coach who owns them,
+   each with a fill status badge (Empty / Partial / Complete).
+2. Click a session → the **report card grid** loads every student at that school
+   in that grade, pre-filled with anything already saved, with the lesson plan's
+   assessment objectives shown above it as the goal.
+3. Set P/A for each session, score assessment and right behaviour 1–4, add
+   notes, **Save**.
+4. Come back later, change one student's row, save again — values persist.
+5. **Reports** shows every saved card read-only, filterable by school.
 
-There is no login wall in v1 — the app opens straight onto real data.
+Coaches do not sign in; the weekly view and grid are open. Admins sign in at
+`/login` and own everything else.
+
+## How it fits together
+
+There is no "class". A **school** runs **grades**; a **curriculum** targets one
+grade and holds **lesson plans**, each with **assessment objectives**; a
+school's **syllabus** schedules those lesson plans onto dates. **Students**
+belong to a school and a grade. A **coach** is assigned to a (school, grade) and
+inherits every session scheduled for it.
 
 ## Stack
 
@@ -33,9 +44,10 @@ lib/types.ts      shared types + fill-status rule
 lib/format.ts     timezone-safe date helpers, week windows
 lib/data/         every DB read (queries.ts) and write (mutations.ts)
 lib/actions/      server actions — validate, call lib/data, revalidate
-app/weekly/       weekly view
-app/classes/      class, lesson plan and student management
-app/reports/      [lessonPlanId] = the grid editor; index = admin table
+app/weekly/       weekly view, grouped by coach
+app/admin/        schools+grades, coaches, students, curriculum, syllabus
+app/reports/      [entryId] = the grid editor; index = read-only table
+app/login/        admin sign-in + first-admin bootstrap
 components/       nav shell, grid, forms, badges
 supabase/migrations/  schema; 0001 is applied — add 0002_* to change it
 ```

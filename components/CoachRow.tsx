@@ -8,11 +8,11 @@ import type { Coach } from "@/lib/types";
 
 export default function CoachRow({
   coach,
-  classCount,
+  gradeCount,
   isYou,
 }: {
   coach: Coach;
-  classCount: number;
+  gradeCount: number;
   isYou: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -30,8 +30,8 @@ export default function CoachRow({
             )}
           </p>
           <p className="text-xs text-neutral-500">
-            {coach.email || "No email"} · {classCount} class
-            {classCount === 1 ? "" : "es"}
+            {coach.email || "No email"} · {gradeCount} grade
+            {gradeCount === 1 ? "" : "s"} assigned
             {coach.user_id ? " · has a login" : ""}
           </p>
         </div>
@@ -57,7 +57,7 @@ export default function CoachRow({
             <DeleteButton
               action={deleteCoachAction}
               hidden={{ id: coach.id }}
-              confirmMessage={`Delete ${coach.name}? Their classes stay, but become unassigned.`}
+              confirmMessage={`Delete ${coach.name}? Their grade assignments go with them, and those sessions become unassigned.`}
             />
           )}
         </div>

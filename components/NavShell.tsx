@@ -7,7 +7,6 @@ import { signOutAction } from "@/lib/actions/auth";
 
 const COACH_SECTIONS = [
   { href: "/weekly", label: "Weekly View" },
-  { href: "/classes", label: "Classes" },
   { href: "/reports", label: "Reports" },
 ];
 

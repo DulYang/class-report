@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { saveReportCards, type ReportCardInput } from "@/lib/data/mutations";
-import type { ActionResult, Attendance } from "@/lib/types";
+import { toScore, type ActionResult, type Attendance } from "@/lib/types";
 
 function toAttendance(value: unknown): Attendance {
   return value === "A" ? "A" : "P";
@@ -28,8 +28,8 @@ export async function saveReportCardGrid(
       student_id: r.student_id,
       attendance_session1: toAttendance(r.attendance_session1),
       attendance_session2: toAttendance(r.attendance_session2),
-      assessment: toText(r.assessment),
-      right_behavior: toText(r.right_behavior),
+      assessment: toScore(r.assessment),
+      right_behavior: toScore(r.right_behavior),
       notes: toText(r.notes),
     }));
 

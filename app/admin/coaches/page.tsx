@@ -2,7 +2,7 @@ import Link from "next/link";
 import CoachRow from "@/components/CoachRow";
 import CoachForm from "@/components/forms/CoachForm";
 import { requireAdmin } from "@/lib/auth";
-import { getClasses, getCoaches } from "@/lib/data/queries";
+import { getCoachAssignments, getCoaches } from "@/lib/data/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -10,9 +10,12 @@ export default async function AdminCoachesPage() {
   const admin = await requireAdmin();
 
   let coaches;
-  let classes;
+  let assignments;
   try {
-    [coaches, classes] = await Promise.all([getCoaches(), getClasses()]);
+    [coaches, assignments] = await Promise.all([
+      getCoaches(),
+      getCoachAssignments(),
+    ]);
   } catch (err) {
     return (
       <div
@@ -27,10 +30,9 @@ export default async function AdminCoachesPage() {
     );
   }
 
-  const classCount = new Map<string, number>();
-  for (const c of classes) {
-    if (!c.coach_id) continue;
-    classCount.set(c.coach_id, (classCount.get(c.coach_id) ?? 0) + 1);
+  const gradeCount = new Map<string, number>();
+  for (const a of assignments) {
+    gradeCount.set(a.coach_id, (gradeCount.get(a.coach_id) ?? 0) + 1);
   }
 
   return (
@@ -65,7 +67,7 @@ export default async function AdminCoachesPage() {
               <CoachRow
                 key={coach.id}
                 coach={coach}
-                classCount={classCount.get(coach.id) ?? 0}
+                gradeCount={gradeCount.get(coach.id) ?? 0}
                 isYou={coach.id === admin.id}
               />
             ))}

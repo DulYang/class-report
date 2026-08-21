@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import {
-  getClasses,
   getCoaches,
   getCurricula,
   getGrades,
   getLessonPlans,
   getSchools,
+  getStudents,
 } from "@/lib/data/queries";
 
 export const dynamic = "force-dynamic";
@@ -15,12 +15,18 @@ const CARDS = [
   {
     href: "/admin/schools",
     label: "Schools & Grades",
-    blurb: "School details, person in charge, and the grades each school runs.",
+    blurb:
+      "School details, person in charge, the grades it runs, and which coach owns each grade.",
   },
   {
     href: "/admin/coaches",
     label: "Coaches",
     blurb: "Who coaches, and who else is an admin.",
+  },
+  {
+    href: "/admin/students",
+    label: "Students",
+    blurb: "The roster. A student belongs to a school and a grade.",
   },
   {
     href: "/admin/curriculum",
@@ -37,24 +43,32 @@ const CARDS = [
 export default async function AdminHome() {
   const admin = await requireAdmin();
 
-  let counts = { schools: 0, grades: 0, coaches: 0, curricula: 0, plans: 0, classes: 0 };
+  let counts = {
+    schools: 0,
+    grades: 0,
+    coaches: 0,
+    curricula: 0,
+    plans: 0,
+    students: 0,
+  };
   let error: string | null = null;
   try {
-    const [schools, grades, coaches, curricula, plans, classes] = await Promise.all([
-      getSchools(),
-      getGrades(),
-      getCoaches(),
-      getCurricula(),
-      getLessonPlans(),
-      getClasses(),
-    ]);
+    const [schools, grades, coaches, curricula, plans, students] =
+      await Promise.all([
+        getSchools(),
+        getGrades(),
+        getCoaches(),
+        getCurricula(),
+        getLessonPlans(),
+        getStudents(),
+      ]);
     counts = {
       schools: schools.length,
       grades: grades.length,
       coaches: coaches.length,
       curricula: curricula.length,
       plans: plans.length,
-      classes: classes.length,
+      students: students.length,
     };
   } catch (err) {
     error = err instanceof Error ? err.message : "Unknown database error";
@@ -84,7 +98,7 @@ export default async function AdminHome() {
           <Stat label="Coaches" value={counts.coaches} />
           <Stat label="Curricula" value={counts.curricula} />
           <Stat label="Lesson plans" value={counts.plans} />
-          <Stat label="Classes" value={counts.classes} />
+          <Stat label="Students" value={counts.students} />
         </dl>
       )}
 

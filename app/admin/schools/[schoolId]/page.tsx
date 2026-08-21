@@ -5,10 +5,10 @@ import CoachAssignmentForm from "@/components/forms/CoachAssignmentForm";
 import GradeForm from "@/components/forms/GradeForm";
 import SchoolForm from "@/components/forms/SchoolForm";
 import GradeRow from "@/components/GradeRow";
-import { unassignCoachAction } from "@/lib/actions/coach-schools";
+import { unassignCoachAction } from "@/lib/actions/coach-assignments";
 import { deleteSchoolAction } from "@/lib/actions/schools";
 import {
-  getCoachSchools,
+  getCoachAssignments,
   getCoaches,
   getGrades,
   getSchool,
@@ -26,13 +26,13 @@ export default async function AdminSchoolDetail({
   let school;
   let grades;
   let coaches;
-  let coachSchools;
+  let assignmentRows;
   try {
-    [school, grades, coaches, coachSchools] = await Promise.all([
+    [school, grades, coaches, assignmentRows] = await Promise.all([
       getSchool(schoolId),
       getGrades(),
       getCoaches(),
-      getCoachSchools(),
+      getCoachAssignments(),
     ]);
   } catch (err) {
     return (
@@ -51,14 +51,20 @@ export default async function AdminSchoolDetail({
   if (!school) notFound();
   const schoolGrades = grades.filter((g) => g.school_id === school.id);
 
-  const assignedHere = coachSchools.filter((cs) => cs.school_id === school.id);
   const coachById = new Map(coaches.map((c) => [c.id, c]));
-  const assigned = assignedHere.flatMap((cs) => {
-    const coach = coachById.get(cs.coach_id);
-    return coach ? [{ assignment: cs, coach }] : [];
-  });
-  const assignedIds = new Set(assigned.map((a) => a.coach.id));
-  const available = coaches.filter((c) => !assignedIds.has(c.id));
+  const gradeById = new Map(grades.map((g) => [g.id, g]));
+  const assigned = assignmentRows
+    .filter((a) => a.school_id === school.id)
+    .flatMap((a) => {
+      const coach = coachById.get(a.coach_id);
+      const grade = gradeById.get(a.grade_id);
+      return coach && grade ? [{ assignment: a, coach, grade }] : [];
+    })
+    .sort(
+      (a, b) =>
+        a.coach.name.localeCompare(b.coach.name) ||
+        a.grade.name.localeCompare(b.grade.name),
+    );
 
   return (
     <div className="space-y-8">
@@ -127,23 +133,28 @@ export default async function AdminSchoolDetail({
             </span>
           </h2>
           <p className="text-xs text-neutral-500">
-            Only these coaches can be put on a class at this school.
+            A coach is assigned to a grade, and inherits every session
+            scheduled for it.
           </p>
         </div>
 
         {assigned.length === 0 ? (
           <p className="px-4 py-4 text-sm text-neutral-500">
-            No coaches assigned yet — no class can be created here until one is.
+            No coaches assigned yet — sessions scheduled here will show up
+            under &ldquo;No coach assigned&rdquo; in the weekly view.
           </p>
         ) : (
           <ul className="divide-y divide-neutral-100">
-            {assigned.map(({ assignment, coach }) => (
+            {assigned.map(({ assignment, coach, grade }) => (
               <li
                 key={assignment.id}
                 className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5"
               >
                 <div>
                   <span className="font-medium">{coach.name}</span>
+                  <span className="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-semibold text-neutral-700">
+                    {grade.name}
+                  </span>
                   <span className="ml-2 text-xs text-neutral-500">
                     {coach.email || "No email"}
                   </span>
@@ -152,7 +163,7 @@ export default async function AdminSchoolDetail({
                   action={unassignCoachAction}
                   hidden={{ id: assignment.id, school_id: school.id }}
                   label="Unassign"
-                  confirmMessage={`Unassign ${coach.name} from ${school.name}? Existing classes keep them, but no new class here can pick them.`}
+                  confirmMessage={`Unassign ${coach.name} from ${grade.name} at ${school.name}? Those sessions will no longer appear in their weekly view.`}
                 />
               </li>
             ))}
@@ -161,7 +172,11 @@ export default async function AdminSchoolDetail({
 
         <div className="border-t border-neutral-200 bg-neutral-50 p-4">
           <h3 className="mb-3 text-sm font-semibold">Assign a coach</h3>
-          <CoachAssignmentForm schoolId={school.id} available={available} />
+          <CoachAssignmentForm
+            schoolId={school.id}
+            coaches={coaches}
+            grades={schoolGrades}
+          />
         </div>
       </section>
 

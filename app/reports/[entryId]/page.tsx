@@ -10,13 +10,13 @@ export const dynamic = "force-dynamic";
 export default async function ReportCardPage({
   params,
 }: {
-  params: Promise<{ classId: string; entryId: string }>;
+  params: Promise<{ entryId: string }>;
 }) {
-  const { classId, entryId } = await params;
+  const { entryId } = await params;
 
   let result;
   try {
-    result = await getReportCardRows(classId, entryId);
+    result = await getReportCardRows(entryId);
   } catch (err) {
     return (
       <ErrorState message={err instanceof Error ? err.message : "Unknown error"} />
@@ -24,7 +24,7 @@ export default async function ReportCardPage({
   }
 
   if (!result) notFound();
-  const { entry, plan, objectives, cls, school, grade, rows } = result;
+  const { entry, plan, objectives, school, grade, coaches, rows } = result;
 
   return (
     <div className="space-y-6">
@@ -35,22 +35,16 @@ export default async function ReportCardPage({
         >
           ← Weekly view
         </Link>
+        {coaches.length > 0 && (
+          <p className="text-sm font-semibold text-neutral-500">
+            {coaches.map((c) => c.name).join(", ")}
+          </p>
+        )}
         <h1 className="text-2xl font-bold tracking-tight">
           {plan?.title ?? "Lesson plan missing"}
         </h1>
         <p className="text-sm text-neutral-600">
-          {cls && (
-            <>
-              <Link
-                href={`/classes/${cls.id}`}
-                className="font-medium text-neutral-900 hover:underline"
-              >
-                {cls.name}
-              </Link>{" "}
-              · {school?.name ?? "Unknown school"} ·{" "}
-              {grade?.name ?? "Unknown grade"} ·{" "}
-            </>
-          )}
+          {school?.name ?? "Unknown school"} · {grade?.name ?? "Unknown grade"} ·
           Session 1 {formatDate(entry.session_date1)}
           {entry.session_date2
             ? ` · Session 2 ${formatDate(entry.session_date2)}`
@@ -62,18 +56,14 @@ export default async function ReportCardPage({
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-neutral-300 p-8 text-center">
-          <p className="font-medium text-neutral-900">No students in this class yet</p>
-          <p className="mt-1 text-sm text-neutral-600">
-            Add students before you can fill out report cards.
+          <p className="font-medium text-neutral-900">
+            No students in {grade?.name ?? "this grade"} at{" "}
+            {school?.name ?? "this school"}
           </p>
-          {cls && (
-            <Link
-              href={`/classes/${cls.id}`}
-              className="mt-4 inline-block rounded-md bg-neutral-900 px-4 py-2 text-sm font-semibold text-white"
-            >
-              Add students to {cls.name}
-            </Link>
-          )}
+          <p className="mt-1 text-sm text-neutral-600">
+            An admin adds students on the Students page before report cards can
+            be filled.
+          </p>
         </div>
       ) : (
         <ReportCardGrid

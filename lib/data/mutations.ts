@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Attendance, Class, LessonPlan, Student } from "@/lib/types";
+import type { Attendance, LessonPlan, Score, Student } from "@/lib/types";
 
 /** Every DB write lives here. Server actions validate, then call into this. */
 
@@ -7,8 +7,8 @@ export type ReportCardInput = {
   student_id: string;
   attendance_session1: Attendance;
   attendance_session2: Attendance;
-  assessment: string;
-  right_behavior: string;
+  assessment: Score;
+  right_behavior: Score;
   notes: string;
 };
 
@@ -133,20 +133,21 @@ export async function claimAdminAccount(input: {
   if (error) throw new Error(error.message);
 }
 
-// ── coach ↔ school assignment (admin) ──────────────────────────────────────
+// ── coach ↔ (school, grade) assignment (admin) ─────────────────────────────
 
-export async function assignCoachToSchool(input: {
+export async function assignCoachToGrade(input: {
   coach_id: string;
   school_id: string;
+  grade_id: string;
 }): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase.from("coach_schools").insert(input);
+  const { error } = await supabase.from("coach_assignments").insert(input);
   if (error) throw new Error(error.message);
 }
 
-export async function unassignCoachFromSchool(id: string): Promise<void> {
+export async function unassignCoachFromGrade(id: string): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase.from("coach_schools").delete().eq("id", id);
+  const { error } = await supabase.from("coach_assignments").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 
@@ -268,40 +269,11 @@ export async function deleteSyllabusEntry(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-// ── classes + students (coach-facing) ──────────────────────────────────────
-
-export type ClassInput = {
-  name: string;
-  school_id: string;
-  grade_id: string;
-  coach_id: string | null;
-};
-
-export async function createClass(input: ClassInput): Promise<Class> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("classes")
-    .insert(input)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return data as Class;
-}
-
-export async function updateClass(id: string, input: ClassInput): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase.from("classes").update(input).eq("id", id);
-  if (error) throw new Error(error.message);
-}
-
-export async function deleteClass(id: string): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase.from("classes").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-}
+// ── students (admin) ───────────────────────────────────────────────────────
 
 export async function createStudent(input: {
-  class_id: string;
+  school_id: string;
+  grade_id: string;
   name: string;
 }): Promise<Student> {
   const supabase = await createClient();
@@ -314,9 +286,12 @@ export async function createStudent(input: {
   return data as Student;
 }
 
-export async function updateStudent(id: string, name: string): Promise<void> {
+export async function updateStudent(
+  id: string,
+  input: { name: string; school_id: string; grade_id: string },
+): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase.from("students").update({ name }).eq("id", id);
+  const { error } = await supabase.from("students").update(input).eq("id", id);
   if (error) throw new Error(error.message);
 }
 

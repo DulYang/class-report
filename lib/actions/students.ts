@@ -14,12 +14,29 @@ function field(formData: FormData, name: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function refresh(classId?: string) {
+function refresh() {
   revalidatePath("/weekly");
-  revalidatePath("/classes");
   revalidatePath("/admin/students");
   revalidatePath("/reports");
-  if (classId) revalidatePath(`/classes/${classId}`);
+}
+
+type Parsed =
+  | { valid: false; error: string }
+  | { valid: true; input: { name: string; school_id: string; grade_id: string } };
+
+function readStudent(formData: FormData): Parsed {
+  const name = field(formData, "name");
+  const schoolId = field(formData, "school_id");
+  const gradeId = field(formData, "grade_id");
+
+  if (!name) return { valid: false, error: "Student name is required." };
+  if (!schoolId) return { valid: false, error: "Pick the student's school." };
+  if (!gradeId) return { valid: false, error: "Pick the student's grade." };
+
+  return {
+    valid: true,
+    input: { name, school_id: schoolId, grade_id: gradeId },
+  };
 }
 
 export async function createStudentAction(
@@ -29,13 +46,11 @@ export async function createStudentAction(
   const denied = await adminGuard();
   if (denied) return { ok: false, error: denied };
 
-  const classId = field(formData, "class_id");
-  const name = field(formData, "name");
-  if (!classId) return { ok: false, error: "Pick a class for this student." };
-  if (!name) return { ok: false, error: "Student name is required." };
+  const parsed = readStudent(formData);
+  if (!parsed.valid) return { ok: false, error: parsed.error };
 
   try {
-    await createStudent({ class_id: classId, name });
+    await createStudent(parsed.input);
   } catch (err) {
     return {
       ok: false,
@@ -43,7 +58,7 @@ export async function createStudentAction(
     };
   }
 
-  refresh(classId);
+  refresh();
   return { ok: true };
 }
 
@@ -55,30 +70,29 @@ export async function updateStudentAction(
   if (denied) return { ok: false, error: denied };
 
   const id = field(formData, "id");
-  const classId = field(formData, "class_id");
-  const name = field(formData, "name");
   if (!id) return { ok: false, error: "Missing student id." };
-  if (!name) return { ok: false, error: "Student name is required." };
+
+  const parsed = readStudent(formData);
+  if (!parsed.valid) return { ok: false, error: parsed.error };
 
   try {
-    await updateStudent(id, name);
+    await updateStudent(id, parsed.input);
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "Could not rename the student.",
+      error: err instanceof Error ? err.message : "Could not update the student.",
     };
   }
 
-  refresh(classId);
+  refresh();
   return { ok: true };
 }
 
-/** Removing a student cascades to their report cards for every lesson plan. */
+/** Removing a student cascades to their report cards for every session. */
 export async function deleteStudentAction(formData: FormData): Promise<void> {
   if (await adminGuard()) return;
   const id = field(formData, "id");
-  const classId = field(formData, "class_id");
   if (!id) return;
   await deleteStudent(id);
-  refresh(classId);
+  refresh();
 }

@@ -2,7 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { saveReportCardGrid } from "@/lib/actions/report-cards";
-import type { Attendance, ReportCardRow } from "@/lib/types";
+import {
+  SCORES,
+  toScore,
+  type Attendance,
+  type ReportCardRow,
+  type Score,
+} from "@/lib/types";
 
 type Props = {
   syllabusEntryId: string;
@@ -98,6 +104,9 @@ export default function ReportCardGrid({
             Mark all absent
           </button>
         </div>
+        <span className="text-xs text-neutral-500">
+          Assessment and right behaviour are scored 1–4.
+        </span>
       </div>
 
       {error && (
@@ -110,7 +119,7 @@ export default function ReportCardGrid({
       )}
 
       <div className="overflow-x-auto rounded-lg border border-neutral-200">
-        <table className="w-full min-w-[900px] border-collapse text-sm">
+        <table className="w-full min-w-[820px] border-collapse text-sm">
           <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
             <tr>
               <th className="px-3 py-2 font-semibold">Student</th>
@@ -153,27 +162,29 @@ export default function ReportCardGrid({
                   </td>
                 )}
                 <td className="px-3 py-2 align-top">
-                  <Cell
+                  <ScoreSelect
                     value={row.assessment}
                     label={`${row.student_name} assessment`}
-                    placeholder="Skill / mark"
                     onChange={(v) => update(row.student_id, { assessment: v })}
                   />
                 </td>
                 <td className="px-3 py-2 align-top">
-                  <Cell
+                  <ScoreSelect
                     value={row.right_behavior}
                     label={`${row.student_name} right behaviour`}
-                    placeholder="Behaviour"
                     onChange={(v) => update(row.student_id, { right_behavior: v })}
                   />
                 </td>
                 <td className="px-3 py-2 align-top">
-                  <Cell
+                  <textarea
+                    aria-label={`${row.student_name} notes`}
                     value={row.notes}
-                    label={`${row.student_name} notes`}
                     placeholder="Notes"
-                    onChange={(v) => update(row.student_id, { notes: v })}
+                    rows={2}
+                    onChange={(e) =>
+                      update(row.student_id, { notes: e.target.value })
+                    }
+                    className="w-full min-w-[200px] resize-y rounded-md border border-neutral-300 px-2 py-1.5 text-sm focus:border-neutral-500 focus:outline-none"
                   />
                 </td>
               </tr>
@@ -247,25 +258,35 @@ function AttendanceSelect({
   );
 }
 
-function Cell({
+/** Shades from 1 (lowest) to 4 (highest) so a filled grid reads at a glance. */
+const SCORE_TONE: Record<Score, string> = {
+  1: "border-neutral-300 bg-white text-neutral-700",
+  2: "border-sky-300 bg-sky-50 text-sky-800",
+  3: "border-indigo-300 bg-indigo-50 text-indigo-800",
+  4: "border-emerald-300 bg-emerald-50 text-emerald-800",
+};
+
+function ScoreSelect({
   value,
   label,
-  placeholder,
   onChange,
 }: {
-  value: string;
+  value: Score;
   label: string;
-  placeholder: string;
-  onChange: (v: string) => void;
+  onChange: (v: Score) => void;
 }) {
   return (
-    <textarea
+    <select
       aria-label={label}
       value={value}
-      placeholder={placeholder}
-      rows={2}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full min-w-[160px] resize-y rounded-md border border-neutral-300 px-2 py-1.5 text-sm focus:border-neutral-500 focus:outline-none"
-    />
+      onChange={(e) => onChange(toScore(e.target.value))}
+      className={`w-20 rounded-md border px-2 py-1.5 font-medium ${SCORE_TONE[value]}`}
+    >
+      {SCORES.map((s) => (
+        <option key={s} value={s}>
+          {s}
+        </option>
+      ))}
+    </select>
   );
 }

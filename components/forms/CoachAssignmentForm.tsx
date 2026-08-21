@@ -1,20 +1,35 @@
 "use client";
 
 import ActionForm, { Field, inputClass } from "@/components/forms/ActionForm";
-import { assignCoachAction } from "@/lib/actions/coach-schools";
-import type { Coach } from "@/lib/types";
+import { assignCoachAction } from "@/lib/actions/coach-assignments";
+import type { Coach, Grade } from "@/lib/types";
 
+/**
+ * A coach is assigned to a grade at a school, and inherits every session
+ * scheduled for it — that is what puts the session in their weekly view.
+ */
 export default function CoachAssignmentForm({
   schoolId,
-  available,
+  coaches,
+  grades,
 }: {
   schoolId: string;
-  available: Coach[];
+  coaches: Coach[];
+  grades: Grade[];
 }) {
-  if (available.length === 0) {
+  if (grades.length === 0) {
     return (
       <p className="text-sm text-neutral-600">
-        Every coach is already assigned to this school.
+        Add a grade to this school first — a coach is assigned to a grade, not
+        the whole school.
+      </p>
+    );
+  }
+
+  if (coaches.length === 0) {
+    return (
+      <p className="text-sm text-neutral-600">
+        No coaches exist yet — add one on the Coaches page.
       </p>
     );
   }
@@ -27,24 +42,33 @@ export default function CoachAssignmentForm({
       resetOnSuccess
     >
       <input type="hidden" name="school_id" value={schoolId} />
-      <Field label="Coach">
-        <select
-          name="coach_id"
-          required
-          defaultValue=""
-          className={`${inputClass} max-w-sm`}
-        >
-          <option value="" disabled>
-            Choose a coach…
-          </option>
-          {available.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-              {c.role === "admin" ? " (admin)" : ""}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Coach">
+          <select name="coach_id" required defaultValue="" className={inputClass}>
+            <option value="" disabled>
+              Choose a coach…
             </option>
-          ))}
-        </select>
-      </Field>
+            {coaches.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+                {c.role === "admin" ? " (admin)" : ""}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Grade">
+          <select name="grade_id" required defaultValue="" className={inputClass}>
+            <option value="" disabled>
+              Choose a grade…
+            </option>
+            {grades.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
     </ActionForm>
   );
 }
