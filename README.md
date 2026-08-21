@@ -1,6 +1,20 @@
-# vibe-stack-supabase
+# Class Report
 
-Next.js 15 + Supabase starter for shipping vibe-coded apps fast. Clone, provision, build.
+Web app for coaches to record per-student attendance and remarks against a
+lesson plan, with a weekly overview and an admin reporting view. Replaces
+duplicating paper report cards into spreadsheets.
+
+## The core job
+
+1. **Weekly View** — this week's classes, each with its lesson plans and a fill
+   status badge (Empty / Partial / Complete).
+2. Click a lesson plan → the **report card grid** loads every student in that
+   class, pre-filled with anything already saved.
+3. Set P/A for both sessions, type assessment / right behaviour / notes, **Save**.
+4. Come back later, change one student's notes, save again — values persist.
+5. **Reports** shows every saved card read-only for admins, filterable by class.
+
+There is no login wall in v1 — the app opens straight onto real data.
 
 ## Stack
 
@@ -9,33 +23,45 @@ Next.js 15 + Supabase starter for shipping vibe-coded apps fast. Clone, provisio
 | Framework | Next.js 15 (App Router, React 19, Server Actions) |
 | Language | TypeScript strict |
 | Styles | Tailwind CSS v4 (CSS-first, no config file) |
-| Auth + DB | Supabase (`@supabase/ssr`) |
-| Package manager | Bun |
-| Deploy | Vercel |
+| Database | Supabase Postgres (`@supabase/ssr`), permissive RLS in v1 |
+| Deploy | Vercel, auto-deployed from `main` |
 
-## Quick start
+## Layout
 
-```bash
-bun install
-cp .env.example .env.local   # fill in your Supabase keys
-bun dev
+```
+lib/types.ts      shared types + fill-status rule
+lib/format.ts     timezone-safe date helpers, week windows
+lib/data/         every DB read (queries.ts) and write (mutations.ts)
+lib/actions/      server actions — validate, call lib/data, revalidate
+app/weekly/       weekly view
+app/classes/      class, lesson plan and student management
+app/reports/      [lessonPlanId] = the grid editor; index = admin table
+components/       nav shell, grid, forms, badges
+supabase/migrations/  schema; 0001 is applied — add 0002_* to change it
 ```
 
-Open http://localhost:3000. Edit `app/page.tsx` to start building.
+Pages and components never query Supabase inline — everything goes through
+`lib/data/`.
 
-## Provisioning a new project
+## Local development
 
-Use the `/new-vibe-project <name>` skill (see `claude-dotfiles` repo) which:
-1. Clones this template and renames it
-2. Creates a new GitHub repo and pushes
-3. Creates a Supabase project and injects URL + anon key
-4. Creates a Vercel project linked to the GitHub repo
-5. Triggers first deploy and returns the preview URL
+```bash
+npm install
+vercel link && vercel env pull .env.local   # Supabase URL + anon key
+npm run dev
+```
 
-## Working with AI
+Open http://localhost:3000.
 
-See [CLAUDE.md](CLAUDE.md) for conventions. This repo is pre-wired for gstack — start with `/office-hours`.
+```bash
+npm run typecheck   # tsc --noEmit
+npm run build       # production build
+```
 
-## Switching to Neon
+## Deploying
 
-If you need Postgres without Supabase (e.g. prefer Drizzle ORM + Clerk for auth), a `vibe-stack-neon` variant is planned. For now: fork this and swap `@supabase/ssr` for `drizzle-orm` + `@neondatabase/serverless`, add Clerk or NextAuth.
+Push to `main` — Vercel builds and deploys from GitHub. Do not deploy with
+`vercel --prod` from a local working copy; it desyncs git from the live app.
+
+See [CLAUDE.md](CLAUDE.md) for the full build rules and [docs/](docs) for the
+PRD, data model, architecture and sprint plan.
