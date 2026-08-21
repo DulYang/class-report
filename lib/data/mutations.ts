@@ -133,6 +133,23 @@ export async function claimAdminAccount(input: {
   if (error) throw new Error(error.message);
 }
 
+// ── coach ↔ school assignment (admin) ──────────────────────────────────────
+
+export async function assignCoachToSchool(input: {
+  coach_id: string;
+  school_id: string;
+}): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("coach_schools").insert(input);
+  if (error) throw new Error(error.message);
+}
+
+export async function unassignCoachFromSchool(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("coach_schools").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 // ── curricula + lesson plans + objectives (admin) ──────────────────────────
 
 export async function createCurriculum(input: {

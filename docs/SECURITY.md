@@ -13,9 +13,24 @@ students, report card grid — stay open so the app remains demoable.
 2. RLS enforces the same rule in the database, so a forged request that skips
    the UI still fails. Verified against the live project: anonymous `INSERT`
    into `schools`, `grades`, `curricula`, `lesson_plans`,
-   `assessment_objectives` and `syllabus_entries` all return
-   `42501 new row violates row-level security policy`, while `SELECT` returns
-   200.
+   `assessment_objectives`, `syllabus_entries`, `coach_schools` and `students`
+   all return `42501 new row violates row-level security policy`, while
+   `SELECT` returns 200. Anonymous `UPDATE`/`DELETE` on `students` affect zero
+   rows — RLS removes them from the statement's visible set, so PostgREST
+   reports success while changing nothing (confirmed with
+   `Prefer: return=representation`, which returns `[]`).
+
+### Coach-to-school assignment
+`coach_schools` records which coaches work where, and only an admin can write
+it. A class must pair a coach with a school they are already assigned to. The
+class form only offers assigned schools, but the real enforcement is the
+server-side check in `createClassAction` / `updateClassAction` — verified by
+filling the form while an assignment existed, revoking it, then submitting: the
+class was rejected with a readable error and no row was written.
+
+Note this one is application-level, not RLS: `classes` is still anon-writable,
+so the pairing rule holds only through the server actions. It moves into RLS
+with the coach lockdown below.
 
 ### Admin identity
 An admin is an `auth.users` row whose `coaches` record has
@@ -41,7 +56,8 @@ evaluated as the querying role. Supabase's security advisor reports no findings.
 
 ## Not done yet — do not put real student data in this
 - **Coaches are not scoped.** The coach screens are open to anyone with the URL,
-  and any visitor can edit any class, student or report card. Locking this down
+  and any visitor can edit any class or report card. The roster is safe —
+  `students` is admin-write only — but classes and report cards are not. Locking this down
   means giving coaches logins and rewriting the coach-facing policies to
   `classes.user_id = auth.uid()`, with admins seeing everything.
 - **No audit log** on report card edits.

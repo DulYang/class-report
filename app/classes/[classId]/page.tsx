@@ -2,12 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import DeleteButton from "@/components/DeleteButton";
 import ClassForm from "@/components/forms/ClassForm";
-import StudentForm from "@/components/forms/StudentForm";
 import StatusBadge from "@/components/StatusBadge";
-import StudentRow from "@/components/StudentRow";
 import { deleteClassAction } from "@/lib/actions/classes";
 import {
   getClassesWithSchedule,
+  getCoachSchools,
   getCoaches,
   getGrades,
   getSchools,
@@ -29,14 +28,17 @@ export default async function ClassDetailPage({
   let schools;
   let grades;
   let students;
+  let coachSchools;
   try {
-    [classes, coaches, schools, grades, students] = await Promise.all([
-      getClassesWithSchedule(),
-      getCoaches(),
-      getSchools(),
-      getGrades(),
-      getStudents(classId),
-    ]);
+    [classes, coaches, schools, grades, students, coachSchools] =
+      await Promise.all([
+        getClassesWithSchedule(),
+        getCoaches(),
+        getSchools(),
+        getGrades(),
+        getStudents(classId),
+        getCoachSchools(),
+      ]);
   } catch (err) {
     return (
       <div
@@ -63,11 +65,13 @@ export default async function ClassDetailPage({
         >
           ← Classes
         </Link>
+        <p className="text-sm font-semibold text-neutral-500">
+          {cls.coach ? cls.coach.name : "No coach assigned"}
+        </p>
         <h1 className="text-2xl font-bold tracking-tight">{cls.name}</h1>
         <p className="text-sm text-neutral-600">
           {cls.school?.name ?? "Unknown school"} ·{" "}
-          {cls.grade?.name ?? "Unknown grade"} ·{" "}
-          {cls.coach ? cls.coach.name : "No coach assigned"}
+          {cls.grade?.name ?? "Unknown grade"}
         </p>
       </header>
 
@@ -77,6 +81,7 @@ export default async function ClassDetailPage({
           coaches={coaches}
           schools={schools}
           grades={grades}
+          coachSchools={coachSchools}
           initial={cls}
         />
         <div className="mt-4 border-t border-neutral-200 pt-3">
@@ -142,24 +147,24 @@ export default async function ClassDetailPage({
               ({students.length})
             </span>
           </h2>
+          <p className="text-xs text-neutral-500">
+            Read-only — admins manage the roster.
+          </p>
         </div>
 
         {students.length === 0 ? (
           <p className="px-4 py-4 text-sm text-neutral-500">
-            No students yet. Add them below so report cards have a roster.
+            No students yet. An admin adds them on the Students page.
           </p>
         ) : (
           <ul className="divide-y divide-neutral-100">
             {students.map((s) => (
-              <StudentRow key={s.id} student={s} />
+              <li key={s.id} className="px-4 py-2.5 font-medium">
+                {s.name}
+              </li>
             ))}
           </ul>
         )}
-
-        <div className="border-t border-neutral-200 bg-neutral-50 p-4">
-          <h3 className="mb-3 text-sm font-semibold">Add a student</h3>
-          <StudentForm classId={cls.id} />
-        </div>
       </section>
     </div>
   );

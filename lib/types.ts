@@ -64,6 +64,14 @@ export type SyllabusEntry = {
   created_at: string;
 };
 
+/** Which coaches work at which school. Admin-assigned only. */
+export type CoachSchool = {
+  id: string;
+  coach_id: string;
+  school_id: string;
+  created_at: string;
+};
+
 export type Class = {
   id: string;
   coach_id: string | null;

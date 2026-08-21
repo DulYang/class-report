@@ -1,6 +1,6 @@
 # Class Report — Data Model
 
-Migrations `0002`–`0004` introduced the admin domain. School and grade stopped
+Migrations `0002`–`0005` introduced the admin domain. School and grade stopped
 being free text on `classes`, lesson plans moved from classes to curricula, and
 scheduling moved to a per-school syllabus.
 
@@ -61,6 +61,18 @@ Reusable content only. A lesson plan carries no dates; the syllabus schedules it
 The grade is implied by the plan's curriculum, so an objective is scoped to a
 lesson plan *for a specific grade* without a second FK. Coaches see these
 read-only on the report card as the goal for the class.
+
+### coach_schools
+| field | type |
+|---|---|
+| id | uuid pk |
+| coach_id | uuid not null → coaches.id |
+| school_id | uuid not null → schools.id |
+| created_at | timestamptz default now() |
+
+**Unique**: (coach_id, school_id). Which coaches work at which school. Only an
+admin creates these, and a class may only pair a coach with a school they are
+assigned to — so creating a class can never introduce a new pairing.
 
 ### syllabus_entries
 | field | type |
@@ -127,6 +139,7 @@ scheduled session.
 schools 1—* grades 1—* curricula 1—* lesson_plans 1—* assessment_objectives
 schools 1—* syllabus_entries *—1 lesson_plans
 schools 1—* classes *—1 grades ;  coaches 1—* classes 1—* students
+coaches *—* schools (via coach_schools)
 syllabus_entries 1—* report_cards *—1 students
 ```
 
@@ -136,9 +149,9 @@ curriculum for the class's grade.
 
 ## RLS
 - **Read**: open on every table — the coach app has no login.
-- **Write**: `classes`, `students`, `report_cards` are open (coaches do not sign
-  in). `schools`, `grades`, `curricula`, `lesson_plans`,
-  `assessment_objectives`, `syllabus_entries` and `coaches` require
+- **Write**: `classes` and `report_cards` are open (coaches do not sign in).
+  `schools`, `grades`, `curricula`, `lesson_plans`, `assessment_objectives`,
+  `syllabus_entries`, `coaches`, `coach_schools` and `students` all require
   `private.is_admin()`.
 - **Bootstrap**: `coaches` also allows an insert while
   `private.admin_bootstrap_open()` is true — i.e. until the first admin links an
@@ -148,6 +161,7 @@ curriculum for the class's grade.
 
 ## Still open
 Coaches have no per-user scoping — anyone can reach the coach screens and edit
-any class. That is the remaining lockdown work before real student data.
+any class or report card. That is the remaining lockdown work before real
+student data. The roster itself is already safe: `students` is admin-write only.
 
 No AI-generated fields.

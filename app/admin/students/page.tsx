@@ -1,31 +1,22 @@
 import Link from "next/link";
 import StudentForm from "@/components/forms/StudentForm";
 import StudentRow from "@/components/StudentRow";
-import { createClient } from "@/lib/supabase/server";
-import { getClasses, getGrades, getSchools } from "@/lib/data/queries";
-import type { Student } from "@/lib/types";
+import { getClasses, getGrades, getRoster, getSchools } from "@/lib/data/queries";
 
 export const dynamic = "force-dynamic";
 
-export default async function StudentsPage() {
+export default async function AdminStudentsPage() {
+  let roster;
   let classes;
-  let students: Student[];
   let schools;
   let grades;
   try {
-    const supabase = await createClient();
-    const [classesResult, studentsResult, schoolList, gradeList] =
-      await Promise.all([
-        getClasses(),
-        supabase.from("students").select("*").order("name"),
-        getSchools(),
-        getGrades(),
-      ]);
-    if (studentsResult.error) throw new Error(studentsResult.error.message);
-    classes = classesResult;
-    students = (studentsResult.data ?? []) as Student[];
-    schools = schoolList;
-    grades = gradeList;
+    [roster, classes, schools, grades] = await Promise.all([
+      getRoster(),
+      getClasses(),
+      getSchools(),
+      getGrades(),
+    ]);
   } catch (err) {
     return (
       <div
@@ -40,25 +31,30 @@ export default async function StudentsPage() {
     );
   }
 
-  const classById = new Map(classes.map((c) => [c.id, c]));
   const schoolById = new Map(schools.map((s) => [s.id, s]));
   const gradeById = new Map(grades.map((g) => [g.id, g]));
+
   const byClass = classes
     .map((cls) => ({
       cls,
-      students: students.filter((s) => s.class_id === cls.id),
+      students: roster.filter((r) => r.student.class_id === cls.id),
     }))
     .filter((group) => group.students.length > 0);
 
-  const orphaned = students.filter((s) => !classById.has(s.class_id));
+  const classIds = new Set(classes.map((c) => c.id));
+  const orphaned = roster.filter((r) => !classIds.has(r.student.class_id));
 
   return (
     <div className="space-y-8">
       <header>
+        <Link href="/admin" className="text-sm text-neutral-500 hover:text-neutral-900">
+          ← Admin
+        </Link>
         <h1 className="text-2xl font-bold tracking-tight">Students</h1>
         <p className="text-sm text-neutral-600">
-          {students.length} student{students.length === 1 ? "" : "s"} across{" "}
-          {classes.length} class{classes.length === 1 ? "" : "es"}.
+          {roster.length} student{roster.length === 1 ? "" : "s"} across{" "}
+          {classes.length} class{classes.length === 1 ? "" : "es"}. Coaches can
+          see the roster on a report card but cannot change it.
         </p>
       </header>
 
@@ -77,13 +73,13 @@ export default async function StudentsPage() {
         )}
       </section>
 
-      {students.length === 0 ? (
+      {roster.length === 0 ? (
         <p className="rounded-lg border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-600">
           No students yet.
         </p>
       ) : (
         <div className="space-y-3">
-          {byClass.map(({ cls, students: roster }) => (
+          {byClass.map(({ cls, students }) => (
             <div
               key={cls.id}
               className="rounded-lg border border-neutral-200 bg-white"
@@ -98,13 +94,12 @@ export default async function StudentsPage() {
                 <p className="text-xs text-neutral-500">
                   {schoolById.get(cls.school_id)?.name ?? "Unknown school"} ·{" "}
                   {gradeById.get(cls.grade_id)?.name ?? "Unknown grade"} ·{" "}
-                  {roster.length} student
-                  {roster.length === 1 ? "" : "s"}
+                  {students.length} student{students.length === 1 ? "" : "s"}
                 </p>
               </div>
               <ul className="divide-y divide-neutral-100">
-                {roster.map((s) => (
-                  <StudentRow key={s.id} student={s} />
+                {students.map(({ student }) => (
+                  <StudentRow key={student.id} student={student} />
                 ))}
               </ul>
             </div>
@@ -113,12 +108,12 @@ export default async function StudentsPage() {
           {orphaned.length > 0 && (
             <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
               <p className="text-sm font-semibold text-amber-900">
-                {orphaned.length} student
-                {orphaned.length === 1 ? "" : "s"} with no matching class
+                {orphaned.length} student{orphaned.length === 1 ? "" : "s"} with
+                no matching class
               </p>
               <ul className="mt-2 divide-y divide-amber-200">
-                {orphaned.map((s) => (
-                  <StudentRow key={s.id} student={s} />
+                {orphaned.map(({ student }) => (
+                  <StudentRow key={student.id} student={student} />
                 ))}
               </ul>
             </div>

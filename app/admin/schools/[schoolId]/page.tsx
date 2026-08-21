@@ -1,11 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import DeleteButton from "@/components/DeleteButton";
+import CoachAssignmentForm from "@/components/forms/CoachAssignmentForm";
 import GradeForm from "@/components/forms/GradeForm";
 import SchoolForm from "@/components/forms/SchoolForm";
 import GradeRow from "@/components/GradeRow";
+import { unassignCoachAction } from "@/lib/actions/coach-schools";
 import { deleteSchoolAction } from "@/lib/actions/schools";
-import { getGrades, getSchool } from "@/lib/data/queries";
+import {
+  getCoachSchools,
+  getCoaches,
+  getGrades,
+  getSchool,
+} from "@/lib/data/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +25,15 @@ export default async function AdminSchoolDetail({
 
   let school;
   let grades;
+  let coaches;
+  let coachSchools;
   try {
-    [school, grades] = await Promise.all([getSchool(schoolId), getGrades()]);
+    [school, grades, coaches, coachSchools] = await Promise.all([
+      getSchool(schoolId),
+      getGrades(),
+      getCoaches(),
+      getCoachSchools(),
+    ]);
   } catch (err) {
     return (
       <div
@@ -36,6 +50,15 @@ export default async function AdminSchoolDetail({
 
   if (!school) notFound();
   const schoolGrades = grades.filter((g) => g.school_id === school.id);
+
+  const assignedHere = coachSchools.filter((cs) => cs.school_id === school.id);
+  const coachById = new Map(coaches.map((c) => [c.id, c]));
+  const assigned = assignedHere.flatMap((cs) => {
+    const coach = coachById.get(cs.coach_id);
+    return coach ? [{ assignment: cs, coach }] : [];
+  });
+  const assignedIds = new Set(assigned.map((a) => a.coach.id));
+  const available = coaches.filter((c) => !assignedIds.has(c.id));
 
   return (
     <div className="space-y-8">
@@ -92,6 +115,53 @@ export default async function AdminSchoolDetail({
         <div className="border-t border-neutral-200 bg-neutral-50 p-4">
           <h3 className="mb-3 text-sm font-semibold">Add a grade</h3>
           <GradeForm schoolId={school.id} />
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-neutral-200 bg-white">
+        <div className="border-b border-neutral-200 px-4 py-3">
+          <h2 className="font-semibold">
+            Coaches assigned{" "}
+            <span className="text-sm font-normal text-neutral-500">
+              ({assigned.length})
+            </span>
+          </h2>
+          <p className="text-xs text-neutral-500">
+            Only these coaches can be put on a class at this school.
+          </p>
+        </div>
+
+        {assigned.length === 0 ? (
+          <p className="px-4 py-4 text-sm text-neutral-500">
+            No coaches assigned yet — no class can be created here until one is.
+          </p>
+        ) : (
+          <ul className="divide-y divide-neutral-100">
+            {assigned.map(({ assignment, coach }) => (
+              <li
+                key={assignment.id}
+                className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5"
+              >
+                <div>
+                  <span className="font-medium">{coach.name}</span>
+                  <span className="ml-2 text-xs text-neutral-500">
+                    {coach.email || "No email"}
+                  </span>
+                </div>
+                <DeleteButton
+                  action={unassignCoachAction}
+                  hidden={{ id: assignment.id, school_id: school.id }}
+                  label="Unassign"
+                  confirmMessage={`Unassign ${coach.name} from ${school.name}? Existing classes keep them, but no new class here can pick them.`}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="border-t border-neutral-200 bg-neutral-50 p-4">
+          <h3 className="mb-3 text-sm font-semibold">Assign a coach</h3>
+          <CoachAssignmentForm schoolId={school.id} available={available} />
         </div>
       </section>
 

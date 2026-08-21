@@ -8,7 +8,6 @@ import { signOutAction } from "@/lib/actions/auth";
 const COACH_SECTIONS = [
   { href: "/weekly", label: "Weekly View" },
   { href: "/classes", label: "Classes" },
-  { href: "/students", label: "Students" },
   { href: "/reports", label: "Reports" },
 ];
 
@@ -16,6 +15,7 @@ const ADMIN_SECTIONS = [
   { href: "/admin", label: "Overview", exact: true },
   { href: "/admin/schools", label: "Schools & Grades" },
   { href: "/admin/coaches", label: "Coaches" },
+  { href: "/admin/students", label: "Students" },
   { href: "/admin/curriculum", label: "Curriculum" },
   { href: "/admin/syllabus", label: "Syllabus" },
 ];

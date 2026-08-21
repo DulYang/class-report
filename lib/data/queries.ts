@@ -5,6 +5,7 @@ import {
   type Class,
   type ClassWithSchedule,
   type Coach,
+  type CoachSchool,
   type Curriculum,
   type Grade,
   type LessonPlan,
@@ -53,6 +54,10 @@ export function getGrades(): Promise<Grade[]> {
 
 export function getCoaches(): Promise<Coach[]> {
   return all<Coach>("coaches", "name");
+}
+
+export function getCoachSchools(): Promise<CoachSchool[]> {
+  return all<CoachSchool>("coach_schools");
 }
 
 export function getCurricula(): Promise<Curriculum[]> {
@@ -493,6 +498,41 @@ export async function getAllReportCards(): Promise<
       school: cls ? (schoolById.get(cls.school_id)?.name ?? "") : "",
       grade: cls ? (gradeById.get(cls.grade_id)?.name ?? "") : "",
       coach_name: coach?.name ?? null,
+    };
+  });
+}
+
+/** Every student with the class, school and grade they sit in — admin roster. */
+export async function getRoster(): Promise<
+  {
+    student: Student;
+    cls: Class | null;
+    school: School | null;
+    grade: Grade | null;
+    coach: Coach | null;
+  }[]
+> {
+  const [students, classes, schools, grades, coaches] = await Promise.all([
+    all<Student>("students", "name"),
+    getClasses(),
+    getSchools(),
+    getGrades(),
+    getCoaches(),
+  ]);
+
+  const classById = new Map(classes.map((c) => [c.id, c]));
+  const schoolById = new Map(schools.map((s) => [s.id, s]));
+  const gradeById = new Map(grades.map((g) => [g.id, g]));
+  const coachById = new Map(coaches.map((c) => [c.id, c]));
+
+  return students.map((student) => {
+    const cls = classById.get(student.class_id) ?? null;
+    return {
+      student,
+      cls,
+      school: cls ? (schoolById.get(cls.school_id) ?? null) : null,
+      grade: cls ? (gradeById.get(cls.grade_id) ?? null) : null,
+      coach: cls?.coach_id ? (coachById.get(cls.coach_id) ?? null) : null,
     };
   });
 }
