@@ -41,3 +41,12 @@ export function addWeeks(iso: string, weeks: number): string {
 export function formatRange(from: string, to: string): string {
   return `${formatDate(from)} – ${formatDate(to)}`;
 }
+
+/** Jan–Jun or Jul–Dec of the given date's year, as date-input strings. */
+export function semesterRange(date: Date): { from: string; to: string } {
+  const year = date.getFullYear();
+  const inFirstHalf = date.getMonth() <= 5; // 0 = January
+  return inFirstHalf
+    ? { from: `${year}-01-01`, to: `${year}-06-30` }
+    : { from: `${year}-07-01`, to: `${year}-12-31` };
+}

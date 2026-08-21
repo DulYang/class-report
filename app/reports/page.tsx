@@ -1,15 +1,66 @@
 import Link from "next/link";
 import { getAllReportCards, getSchools } from "@/lib/data/queries";
+import { formatDate, semesterRange } from "@/lib/format";
 import type { Score } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+const SORTS = [
+  { value: "date_desc", label: "Date (newest first)" },
+  { value: "date_asc", label: "Date (oldest first)" },
+  { value: "student", label: "Student name" },
+  { value: "school", label: "School / grade" },
+  { value: "plan", label: "Lesson plan" },
+] as const;
+type Sort = (typeof SORTS)[number]["value"];
+
+function isSort(value: string | undefined): value is Sort {
+  return SORTS.some((s) => s.value === value);
+}
+
+type Row = Awaited<ReturnType<typeof getAllReportCards>>[number];
+
+function compareRows(a: Row, b: Row, sort: Sort): number {
+  switch (sort) {
+    case "date_asc":
+      return (a.session_date ?? "").localeCompare(b.session_date ?? "");
+    case "student":
+      return a.student_name.localeCompare(b.student_name);
+    case "school":
+      return (
+        a.school.localeCompare(b.school) ||
+        a.grade.localeCompare(b.grade) ||
+        a.student_name.localeCompare(b.student_name)
+      );
+    case "plan":
+      return a.plan_title.localeCompare(b.plan_title);
+    case "date_desc":
+    default:
+      return (b.session_date ?? "").localeCompare(a.session_date ?? "");
+  }
+}
+
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ school?: string }>;
+  searchParams: Promise<{
+    school?: string;
+    from?: string;
+    to?: string;
+    sort?: string;
+  }>;
 }) {
-  const { school: schoolFilter } = await searchParams;
+  const {
+    school: schoolFilter,
+    from: fromParam,
+    to: toParam,
+    sort: sortParam,
+  } = await searchParams;
+
+  const defaultRange = semesterRange(new Date());
+  const from = fromParam || defaultRange.from;
+  const to = toParam || defaultRange.to;
+  const sort: Sort = isSort(sortParam) ? sortParam : "date_desc";
 
   let cards;
   let schools;
@@ -30,9 +81,27 @@ export default async function ReportsPage({
   }
 
   const selected = schools.find((s) => s.id === schoolFilter);
-  const visible = selected
-    ? cards.filter((row) => row.school_id === selected.id)
-    : cards;
+
+  const visible = cards
+    .filter((row) => !selected || row.school_id === selected.id)
+    .filter((row) => {
+      if (!row.session_date) return true;
+      return row.session_date >= from && row.session_date <= to;
+    })
+    .sort((a, b) => compareRows(a, b, sort));
+
+  // Every school-filter link keeps the current date range and sort.
+  function schoolHref(schoolId?: string) {
+    const params = new URLSearchParams();
+    if (schoolId) params.set("school", schoolId);
+    if (fromParam) params.set("from", fromParam);
+    if (toParam) params.set("to", toParam);
+    if (sortParam) params.set("sort", sortParam);
+    const qs = params.toString();
+    return qs ? `/reports?${qs}` : "/reports";
+  }
+
+  const isDefaultRange = !fromParam && !toParam;
 
   return (
     <div className="space-y-6">
@@ -47,7 +116,7 @@ export default async function ReportsPage({
 
       <div className="flex flex-wrap gap-2 text-sm">
         <Link
-          href="/reports"
+          href={schoolHref()}
           className={`rounded-md border px-3 py-1.5 font-medium ${
             selected
               ? "border-neutral-300 bg-white hover:bg-neutral-50"
@@ -59,7 +128,7 @@ export default async function ReportsPage({
         {schools.map((s) => (
           <Link
             key={s.id}
-            href={`/reports?school=${s.id}`}
+            href={schoolHref(s.id)}
             className={`rounded-md border px-3 py-1.5 font-medium ${
               selected?.id === s.id
                 ? "border-neutral-900 bg-neutral-900 text-white"
@@ -71,9 +140,73 @@ export default async function ReportsPage({
         ))}
       </div>
 
+      <form
+        method="get"
+        className="flex flex-wrap items-end gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-sm"
+      >
+        {schoolFilter && <input type="hidden" name="school" value={schoolFilter} />}
+
+        <label className="space-y-1">
+          <span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            From
+          </span>
+          <input
+            type="date"
+            name="from"
+            defaultValue={from}
+            className="rounded-md border border-neutral-300 px-2 py-1.5"
+          />
+        </label>
+
+        <label className="space-y-1">
+          <span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            To
+          </span>
+          <input
+            type="date"
+            name="to"
+            defaultValue={to}
+            className="rounded-md border border-neutral-300 px-2 py-1.5"
+          />
+        </label>
+
+        <label className="space-y-1">
+          <span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            Sort by
+          </span>
+          <select
+            name="sort"
+            defaultValue={sort}
+            className="rounded-md border border-neutral-300 px-2 py-1.5"
+          >
+            {SORTS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <button
+          type="submit"
+          className="rounded-md bg-neutral-900 px-3 py-1.5 font-medium text-white"
+        >
+          Apply
+        </button>
+
+        {!isDefaultRange && (
+          <Link
+            href={schoolHref(schoolFilter)}
+            className="text-neutral-500 underline hover:text-neutral-900"
+          >
+            Reset to this semester
+          </Link>
+        )}
+      </form>
+
       {visible.length === 0 ? (
         <p className="rounded-lg border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-600">
-          No report cards saved yet. Fill one in from the{" "}
+          No report cards in this range. Fill one in from the{" "}
           <Link href="/weekly" className="font-medium underline">
             weekly view
           </Link>
@@ -84,6 +217,7 @@ export default async function ReportsPage({
           <table className="w-full min-w-[860px] border-collapse text-sm">
             <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
               <tr>
+                <th className="px-3 py-2 font-semibold">Date</th>
                 <th className="px-3 py-2 font-semibold">Student</th>
                 <th className="px-3 py-2 font-semibold">School / grade</th>
                 <th className="px-3 py-2 font-semibold">Lesson plan</th>
@@ -97,6 +231,9 @@ export default async function ReportsPage({
             <tbody>
               {visible.map((row) => (
                 <tr key={row.card.id} className="border-t border-neutral-200">
+                  <td className="px-3 py-2 whitespace-nowrap text-neutral-600">
+                    {row.session_date ? formatDate(row.session_date) : "—"}
+                  </td>
                   <td className="px-3 py-2 font-medium">{row.student_name}</td>
                   <td className="px-3 py-2 text-neutral-600">
                     {row.school}

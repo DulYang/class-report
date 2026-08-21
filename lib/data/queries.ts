@@ -486,6 +486,7 @@ export async function getAllReportCards(): Promise<
     school_id: string;
     school: string;
     grade: string;
+    session_date: string | null;
   }[]
 > {
   const supabase = await createClient();
@@ -524,6 +525,7 @@ export async function getAllReportCards(): Promise<
       school_id: entry?.school_id ?? "",
       school: entry ? (schoolById.get(entry.school_id)?.name ?? "") : "",
       grade: student ? (gradeById.get(student.grade_id)?.name ?? "") : "",
+      session_date: entry?.session_date1 ?? null,
     };
   });
 }
