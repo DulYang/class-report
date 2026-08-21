@@ -92,7 +92,6 @@ export default async function ReportsPage({
                 <th className="px-3 py-2 font-semibold">Assessment</th>
                 <th className="px-3 py-2 font-semibold">Right behaviour</th>
                 <th className="px-3 py-2 font-semibold">Notes</th>
-                <th className="px-3 py-2 font-semibold"></th>
               </tr>
             </thead>
             <tbody>
@@ -118,14 +117,6 @@ export default async function ReportsPage({
                   </td>
                   <td className="px-3 py-2 text-neutral-700">
                     {row.card.notes || "—"}
-                  </td>
-                  <td className="px-3 py-2">
-                    <Link
-                      href={`/reports/${row.entry_id}/${row.grade_id}`}
-                      className="text-xs font-medium text-neutral-600 underline hover:text-neutral-900"
-                    >
-                      Open
-                    </Link>
                   </td>
                 </tr>
               ))}
