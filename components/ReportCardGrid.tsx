@@ -95,7 +95,81 @@ export default function ReportCardGrid({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200">
+      {/* Mobile: one card per student — a table this wide is unusable on a
+          phone, and filling these in on a phone is the coach's whole job. */}
+      <div className="space-y-3 md:hidden">
+        {rows.map((row) => (
+          <div
+            key={row.student_id}
+            className="space-y-3 rounded-lg border border-neutral-200 bg-white p-3"
+          >
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-semibold text-neutral-900">
+                {row.student_name}
+              </span>
+              {!row.saved && (
+                <span className="shrink-0 text-xs text-amber-600">
+                  Not filled yet
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FieldBlock label={session1Date}>
+                <AttendanceSelect
+                  value={row.attendance_session1}
+                  label={`${row.student_name} attendance for ${session1Date}`}
+                  onChange={(v) =>
+                    update(row.student_id, { attendance_session1: v })
+                  }
+                  full
+                />
+              </FieldBlock>
+              {session2Date && (
+                <FieldBlock label={session2Date}>
+                  <AttendanceSelect
+                    value={row.attendance_session2}
+                    label={`${row.student_name} attendance for ${session2Date}`}
+                    onChange={(v) =>
+                      update(row.student_id, { attendance_session2: v })
+                    }
+                    full
+                  />
+                </FieldBlock>
+              )}
+              <FieldBlock label="Assessment">
+                <ScoreSelect
+                  value={row.assessment}
+                  label={`${row.student_name} assessment`}
+                  onChange={(v) => update(row.student_id, { assessment: v })}
+                  full
+                />
+              </FieldBlock>
+              <FieldBlock label="Right behaviour">
+                <ScoreSelect
+                  value={row.right_behavior}
+                  label={`${row.student_name} right behaviour`}
+                  onChange={(v) => update(row.student_id, { right_behavior: v })}
+                  full
+                />
+              </FieldBlock>
+            </div>
+
+            <FieldBlock label="Notes">
+              <textarea
+                aria-label={`${row.student_name} notes`}
+                value={row.notes}
+                placeholder="Notes"
+                rows={2}
+                onChange={(e) => update(row.student_id, { notes: e.target.value })}
+                className="w-full resize-y rounded-md border border-neutral-300 px-2 py-2 text-base focus:border-neutral-500 focus:outline-none"
+              />
+            </FieldBlock>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-lg border border-neutral-200 md:block">
         <table className="w-full min-w-[820px] border-collapse text-sm">
           <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
             <tr>
@@ -170,12 +244,14 @@ export default function ReportCardGrid({
         </table>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Sticky on mobile so a coach part-way down a long roster can always
+          save without scrolling to the bottom. */}
+      <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center gap-3 border-t border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
         <button
           type="button"
           onClick={save}
           disabled={pending || !dirty}
-          className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-neutral-300"
+          className="min-h-11 flex-1 rounded-md bg-neutral-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-neutral-300 sm:flex-none"
         >
           {pending ? "Saving…" : "Save report cards"}
         </button>
@@ -190,6 +266,24 @@ export default function ReportCardGrid({
         )}
       </div>
     </div>
+  );
+}
+
+/** Labelled field wrapper for the mobile card layout. */
+function FieldBlock({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block space-y-1">
+      <span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+        {label}
+      </span>
+      {children}
+    </label>
   );
 }
 
@@ -213,17 +307,22 @@ function AttendanceSelect({
   value,
   label,
   onChange,
+  full = false,
 }: {
   value: Attendance;
   label: string;
   onChange: (v: Attendance) => void;
+  /** Fill the container and take a touch-sized height — the mobile layout. */
+  full?: boolean;
 }) {
   return (
     <select
       aria-label={label}
       value={value}
       onChange={(e) => onChange(e.target.value === "A" ? "A" : "P")}
-      className={`w-20 rounded-md border px-2 py-1.5 font-medium ${
+      className={`rounded-md border font-medium ${
+        full ? "min-h-11 w-full px-2 py-2 text-base" : "w-20 px-2 py-1.5"
+      } ${
         value === "A"
           ? "border-red-300 bg-red-50 text-red-800"
           : "border-emerald-300 bg-emerald-50 text-emerald-800"
@@ -247,17 +346,22 @@ function ScoreSelect({
   value,
   label,
   onChange,
+  full = false,
 }: {
   value: Score;
   label: string;
   onChange: (v: Score) => void;
+  /** Fill the container and take a touch-sized height — the mobile layout. */
+  full?: boolean;
 }) {
   return (
     <select
       aria-label={label}
       value={value}
       onChange={(e) => onChange(toScore(e.target.value))}
-      className={`w-20 rounded-md border px-2 py-1.5 font-medium ${SCORE_TONE[value]}`}
+      className={`rounded-md border font-medium ${
+        full ? "min-h-11 w-full px-2 py-2 text-base" : "w-20 px-2 py-1.5"
+      } ${SCORE_TONE[value]}`}
     >
       {SCORES.map((s) => (
         <option key={s} value={s}>

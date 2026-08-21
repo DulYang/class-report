@@ -28,7 +28,7 @@ export default function StudentRow({
           <button
             type="button"
             onClick={() => setEditing((v) => !v)}
-            className="rounded-md border border-neutral-300 px-2.5 py-1 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            className="min-h-11 rounded-md border border-neutral-300 px-2.5 py-1 text-sm font-medium text-neutral-700 hover:bg-neutral-50 sm:min-h-0"
           >
             {editing ? "Cancel" : "Edit"}
           </button>

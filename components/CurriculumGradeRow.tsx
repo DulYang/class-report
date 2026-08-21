@@ -73,7 +73,7 @@ export default function CurriculumGradeRow({
                           id === objective.id ? null : objective.id,
                         )
                       }
-                      className="rounded-md border border-neutral-300 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                      className="min-h-11 rounded-md border border-neutral-300 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 sm:min-h-0"
                     >
                       {editingObjective === objective.id ? "Cancel" : "Edit"}
                     </button>
@@ -82,7 +82,7 @@ export default function CurriculumGradeRow({
                       hidden={{ id: objective.id, lesson_plan_id: lessonPlanId }}
                       label="Remove"
                       confirmMessage={`Remove the objective "${objective.title}"?`}
-                      className="rounded-md border border-red-300 px-2 py-0.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                      className="min-h-11 rounded-md border border-red-300 px-2 py-0.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 sm:min-h-0"
                     />
                   </div>
                 </div>

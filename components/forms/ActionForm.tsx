@@ -68,7 +68,7 @@ function Submit({
     <button
       type="submit"
       disabled={pending}
-      className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-semibold text-white disabled:bg-neutral-300"
+      className="min-h-11 w-full rounded-md bg-neutral-900 px-4 py-2 text-sm font-semibold text-white disabled:bg-neutral-300 sm:min-h-0 sm:w-auto"
     >
       {pending ? pendingLabel : label}
     </button>
@@ -92,5 +92,10 @@ export function Field({
   );
 }
 
+/**
+ * `text-base` on mobile is deliberate: iOS Safari zooms the page whenever a
+ * focused input's font-size is under 16px. Drops back to `text-sm` on larger
+ * screens, where that isn't a concern.
+ */
 export const inputClass =
-  "w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none";
+  "w-full min-h-11 rounded-md border border-neutral-300 px-3 py-2 text-base focus:border-neutral-500 focus:outline-none sm:min-h-0 sm:text-sm";

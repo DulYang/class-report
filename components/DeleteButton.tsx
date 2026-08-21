@@ -42,7 +42,7 @@ function Submit({ label, className }: { label: string; className?: string }) {
       disabled={pending}
       className={
         className ??
-        "rounded-md border border-red-300 px-2.5 py-1 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+        "min-h-11 rounded-md border border-red-300 px-2.5 py-1 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 sm:min-h-0"
       }
     >
       {pending ? "Deleting…" : label}

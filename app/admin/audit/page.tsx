@@ -40,7 +40,34 @@ export default async function AdminAuditPage() {
           Nothing logged yet.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+        <>
+        {/* Mobile: stack each entry instead of scrolling a 4-column table. */}
+        <div className="space-y-3 md:hidden">
+          {entries.map((entry) => (
+            <div
+              key={entry.id}
+              className="space-y-1.5 rounded-lg border border-neutral-200 bg-white p-3 text-sm"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">{entry.actor_name}</span>
+                <ActorTag type={entry.actor_type} />
+              </div>
+              <p className="text-neutral-700">{entry.summary}</p>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-500">
+                <span className="font-mono">{entry.action}</span>
+                <span aria-hidden>·</span>
+                <span>
+                  {new Date(entry.created_at).toLocaleString([], {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-lg border border-neutral-200 bg-white md:block">
           <table className="w-full min-w-[720px] border-collapse text-sm">
             <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
               <tr>
@@ -60,18 +87,8 @@ export default async function AdminAuditPage() {
                     })}
                   </td>
                   <td className="px-3 py-2">
-                    <span className="font-medium">{entry.actor_name}</span>
-                    <span
-                      className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                        entry.actor_type === "admin"
-                          ? "bg-indigo-100 text-indigo-800"
-                          : entry.actor_type === "coach"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-neutral-100 text-neutral-600"
-                      }`}
-                    >
-                      {entry.actor_type}
-                    </span>
+                    <span className="font-medium">{entry.actor_name}</span>{" "}
+                    <ActorTag type={entry.actor_type} />
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-neutral-600">
                     {entry.action}
@@ -82,7 +99,24 @@ export default async function AdminAuditPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
+  );
+}
+
+function ActorTag({ type }: { type: "admin" | "coach" | "system" }) {
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+        type === "admin"
+          ? "bg-indigo-100 text-indigo-800"
+          : type === "coach"
+            ? "bg-emerald-100 text-emerald-800"
+            : "bg-neutral-100 text-neutral-600"
+      }`}
+    >
+      {type}
+    </span>
   );
 }

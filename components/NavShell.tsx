@@ -39,7 +39,7 @@ export default function NavShell({
   }
 
   function linkClass(href: string, exact = false) {
-    return `block rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+    return `flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium transition-colors md:min-h-0 ${
       isActive(href, exact)
         ? "bg-neutral-900 text-white"
         : "text-neutral-700 hover:bg-neutral-100"
@@ -107,7 +107,7 @@ export default function NavShell({
           aria-label="Toggle navigation"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="rounded-md border border-neutral-300 px-2.5 py-1.5 text-neutral-700"
+          className="min-h-11 min-w-11 rounded-md border border-neutral-300 px-2.5 py-1.5 text-neutral-700"
         >
           <span aria-hidden>☰</span>
         </button>

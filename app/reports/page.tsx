@@ -117,7 +117,7 @@ export default async function ReportsPage({
       <div className="flex flex-wrap gap-2 text-sm">
         <Link
           href={schoolHref()}
-          className={`rounded-md border px-3 py-1.5 font-medium ${
+          className={`flex min-h-11 items-center rounded-md border px-3 py-1.5 font-medium ${
             selected
               ? "border-neutral-300 bg-white hover:bg-neutral-50"
               : "border-neutral-900 bg-neutral-900 text-white"
@@ -129,7 +129,7 @@ export default async function ReportsPage({
           <Link
             key={s.id}
             href={schoolHref(s.id)}
-            className={`rounded-md border px-3 py-1.5 font-medium ${
+            className={`flex min-h-11 items-center rounded-md border px-3 py-1.5 font-medium ${
               selected?.id === s.id
                 ? "border-neutral-900 bg-neutral-900 text-white"
                 : "border-neutral-300 bg-white hover:bg-neutral-50"
@@ -142,7 +142,7 @@ export default async function ReportsPage({
 
       <form
         method="get"
-        className="flex flex-wrap items-end gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-sm"
+        className="grid gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-sm sm:flex sm:flex-wrap sm:items-end"
       >
         {schoolFilter && <input type="hidden" name="school" value={schoolFilter} />}
 
@@ -154,7 +154,7 @@ export default async function ReportsPage({
             type="date"
             name="from"
             defaultValue={from}
-            className="rounded-md border border-neutral-300 px-2 py-1.5"
+            className="min-h-11 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-base sm:w-auto sm:text-sm"
           />
         </label>
 
@@ -166,7 +166,7 @@ export default async function ReportsPage({
             type="date"
             name="to"
             defaultValue={to}
-            className="rounded-md border border-neutral-300 px-2 py-1.5"
+            className="min-h-11 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-base sm:w-auto sm:text-sm"
           />
         </label>
 
@@ -177,7 +177,7 @@ export default async function ReportsPage({
           <select
             name="sort"
             defaultValue={sort}
-            className="rounded-md border border-neutral-300 px-2 py-1.5"
+            className="min-h-11 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-base sm:w-auto sm:text-sm"
           >
             {SORTS.map((s) => (
               <option key={s.value} value={s.value}>
@@ -189,7 +189,7 @@ export default async function ReportsPage({
 
         <button
           type="submit"
-          className="rounded-md bg-neutral-900 px-3 py-1.5 font-medium text-white"
+          className="min-h-11 rounded-md bg-neutral-900 px-3 py-1.5 font-medium text-white"
         >
           Apply
         </button>
@@ -197,7 +197,7 @@ export default async function ReportsPage({
         {!isDefaultRange && (
           <Link
             href={schoolHref(schoolFilter)}
-            className="text-neutral-500 underline hover:text-neutral-900"
+            className="self-center py-2 text-neutral-500 underline hover:text-neutral-900"
           >
             Reset to this semester
           </Link>
@@ -213,7 +213,60 @@ export default async function ReportsPage({
           .
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+        <>
+        {/* Mobile: one card per report card — 9 columns can't be read on a phone. */}
+        <div className="space-y-3 md:hidden">
+          {visible.map((row) => (
+            <div
+              key={row.card.id}
+              className="space-y-2 rounded-lg border border-neutral-200 bg-white p-3 text-sm"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-semibold">{row.student_name}</span>
+                <span className="shrink-0 text-xs text-neutral-500">
+                  {row.session_date ? formatDate(row.session_date) : "—"}
+                </span>
+              </div>
+              <p className="text-xs text-neutral-500">
+                {row.school} · {row.grade}
+              </p>
+              <p className="text-neutral-700">{row.plan_title}</p>
+              <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                <div className="flex items-center gap-1">
+                  <dt className="text-neutral-500">S1</dt>
+                  <dd>
+                    <Attendance value={row.card.attendance_session1} />
+                  </dd>
+                </div>
+                <div className="flex items-center gap-1">
+                  <dt className="text-neutral-500">S2</dt>
+                  <dd>
+                    <Attendance value={row.card.attendance_session2} />
+                  </dd>
+                </div>
+                <div className="flex items-center gap-1">
+                  <dt className="text-neutral-500">Assessment</dt>
+                  <dd>
+                    <ScorePill value={row.card.assessment} />
+                  </dd>
+                </div>
+                <div className="flex items-center gap-1">
+                  <dt className="text-neutral-500">Behaviour</dt>
+                  <dd>
+                    <ScorePill value={row.card.right_behavior} />
+                  </dd>
+                </div>
+              </dl>
+              {row.card.notes && (
+                <p className="border-t border-neutral-100 pt-2 text-neutral-700">
+                  {row.card.notes}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-lg border border-neutral-200 bg-white md:block">
           <table className="w-full min-w-[860px] border-collapse text-sm">
             <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
               <tr>
@@ -260,6 +313,7 @@ export default async function ReportsPage({
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

@@ -43,7 +43,7 @@ export default function GradeRow({ grade }: { grade: Grade }) {
               }
             }}
             aria-label={`Rename ${grade.name}`}
-            className="w-full max-w-xs rounded-md border border-neutral-300 px-2 py-1 text-sm"
+            className="min-h-11 w-full max-w-xs rounded-md border border-neutral-300 px-2 py-1 text-base sm:min-h-0 sm:text-sm"
           />
         ) : (
           <span className="font-medium">{grade.name}</span>
@@ -62,7 +62,7 @@ export default function GradeRow({ grade }: { grade: Grade }) {
               type="button"
               onClick={save}
               disabled={pending || !name.trim()}
-              className="rounded-md bg-neutral-900 px-2.5 py-1 text-sm font-medium text-white disabled:bg-neutral-300"
+              className="min-h-11 rounded-md bg-neutral-900 px-2.5 py-1 text-sm font-medium text-white disabled:bg-neutral-300 sm:min-h-0"
             >
               {pending ? "Saving…" : "Save"}
             </button>
@@ -73,7 +73,7 @@ export default function GradeRow({ grade }: { grade: Grade }) {
                 setEditing(false);
                 setError(null);
               }}
-              className="rounded-md border border-neutral-300 px-2.5 py-1 text-sm font-medium text-neutral-700"
+              className="min-h-11 rounded-md border border-neutral-300 px-2.5 py-1 text-sm font-medium text-neutral-700 sm:min-h-0"
             >
               Cancel
             </button>
@@ -82,7 +82,7 @@ export default function GradeRow({ grade }: { grade: Grade }) {
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="rounded-md border border-neutral-300 px-2.5 py-1 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            className="min-h-11 rounded-md border border-neutral-300 px-2.5 py-1 text-sm font-medium text-neutral-700 hover:bg-neutral-50 sm:min-h-0"
           >
             Rename
           </button>

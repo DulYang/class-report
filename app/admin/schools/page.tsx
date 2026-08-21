@@ -54,7 +54,35 @@ export default async function AdminSchoolsPage() {
           No schools yet — create the first one above.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+        <>
+        {/* Mobile: each school as a tappable card rather than a wide table. */}
+        <div className="space-y-3 md:hidden">
+          {schools.map((school) => (
+            <Link
+              key={school.id}
+              href={`/admin/schools/${school.id}`}
+              className="block space-y-1 rounded-lg border border-neutral-200 bg-white p-3 text-sm transition-colors hover:border-neutral-400"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-semibold">{school.name}</span>
+                <span className="shrink-0 text-xs text-neutral-500">
+                  {gradeCount.get(school.id) ?? 0} grade
+                  {(gradeCount.get(school.id) ?? 0) === 1 ? "" : "s"}
+                </span>
+              </div>
+              <p className="text-xs text-neutral-600">
+                PIC{" "}
+                {school.pic_name || <span className="text-amber-600">not set</span>}
+                {" · "}
+                {school.pic_phone || (
+                  <span className="text-amber-600">no phone</span>
+                )}
+              </p>
+            </Link>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-lg border border-neutral-200 bg-white md:block">
           <table className="w-full min-w-[720px] border-collapse text-sm">
             <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
               <tr>
@@ -92,7 +120,7 @@ export default async function AdminSchoolsPage() {
                   <td className="px-3 py-2">
                     <Link
                       href={`/admin/schools/${school.id}`}
-                      className="rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-medium hover:bg-neutral-50"
+                      className="inline-block rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-medium hover:bg-neutral-50"
                     >
                       Manage
                     </Link>
@@ -102,6 +130,7 @@ export default async function AdminSchoolsPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );
