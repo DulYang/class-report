@@ -30,7 +30,7 @@ export default async function ReportsPage({
 
   const selected = classes.find((c) => c.id === classFilter);
   const visible = selected
-    ? cards.filter((row) => row.class_name === selected.name)
+    ? cards.filter((row) => row.class_id === selected.id)
     : cards;
 
   return (
@@ -121,12 +121,14 @@ export default async function ReportsPage({
                     {row.card.notes || "—"}
                   </td>
                   <td className="px-3 py-2">
-                    <Link
-                      href={`/reports/${row.card.lesson_plan_id}`}
-                      className="text-xs font-medium text-neutral-600 underline hover:text-neutral-900"
-                    >
-                      Open
-                    </Link>
+                    {row.class_id && (
+                      <Link
+                        href={`/reports/${row.class_id}/${row.card.syllabus_entry_id}`}
+                        className="text-xs font-medium text-neutral-600 underline hover:text-neutral-900"
+                      >
+                        Open
+                      </Link>
+                    )}
                   </td>
                 </tr>
               ))}

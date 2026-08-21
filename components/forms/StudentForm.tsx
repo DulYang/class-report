@@ -41,7 +41,7 @@ export default function StudentForm({
               </option>
               {(classes ?? []).map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} — {c.grade}
+                  {c.name}
                 </option>
               ))}
             </select>

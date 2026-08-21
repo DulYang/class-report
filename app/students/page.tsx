@@ -2,7 +2,7 @@ import Link from "next/link";
 import StudentForm from "@/components/forms/StudentForm";
 import StudentRow from "@/components/StudentRow";
 import { createClient } from "@/lib/supabase/server";
-import { getClasses } from "@/lib/data/queries";
+import { getClasses, getGrades, getSchools } from "@/lib/data/queries";
 import type { Student } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -10,15 +10,22 @@ export const dynamic = "force-dynamic";
 export default async function StudentsPage() {
   let classes;
   let students: Student[];
+  let schools;
+  let grades;
   try {
     const supabase = await createClient();
-    const [classesResult, studentsResult] = await Promise.all([
-      getClasses(),
-      supabase.from("students").select("*").order("name"),
-    ]);
+    const [classesResult, studentsResult, schoolList, gradeList] =
+      await Promise.all([
+        getClasses(),
+        supabase.from("students").select("*").order("name"),
+        getSchools(),
+        getGrades(),
+      ]);
     if (studentsResult.error) throw new Error(studentsResult.error.message);
     classes = classesResult;
     students = (studentsResult.data ?? []) as Student[];
+    schools = schoolList;
+    grades = gradeList;
   } catch (err) {
     return (
       <div
@@ -34,6 +41,8 @@ export default async function StudentsPage() {
   }
 
   const classById = new Map(classes.map((c) => [c.id, c]));
+  const schoolById = new Map(schools.map((s) => [s.id, s]));
+  const gradeById = new Map(grades.map((g) => [g.id, g]));
   const byClass = classes
     .map((cls) => ({
       cls,
@@ -87,7 +96,9 @@ export default async function StudentsPage() {
                   {cls.name}
                 </Link>
                 <p className="text-xs text-neutral-500">
-                  {cls.school} · {cls.grade} · {roster.length} student
+                  {schoolById.get(cls.school_id)?.name ?? "Unknown school"} ·{" "}
+                  {gradeById.get(cls.grade_id)?.name ?? "Unknown grade"} ·{" "}
+                  {roster.length} student
                   {roster.length === 1 ? "" : "s"}
                 </p>
               </div>

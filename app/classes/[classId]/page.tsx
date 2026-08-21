@@ -2,13 +2,18 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import DeleteButton from "@/components/DeleteButton";
 import ClassForm from "@/components/forms/ClassForm";
-import LessonPlanForm from "@/components/forms/LessonPlanForm";
 import StudentForm from "@/components/forms/StudentForm";
-import LessonPlanRow from "@/components/LessonPlanRow";
+import StatusBadge from "@/components/StatusBadge";
 import StudentRow from "@/components/StudentRow";
 import { deleteClassAction } from "@/lib/actions/classes";
-import { getClassesWithPlans, getCoaches, getStudents } from "@/lib/data/queries";
-import { toDateInput, weekRange } from "@/lib/format";
+import {
+  getClassesWithSchedule,
+  getCoaches,
+  getGrades,
+  getSchools,
+  getStudents,
+} from "@/lib/data/queries";
+import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +26,15 @@ export default async function ClassDetailPage({
 
   let classes;
   let coaches;
+  let schools;
+  let grades;
   let students;
   try {
-    [classes, coaches, students] = await Promise.all([
-      getClassesWithPlans(),
+    [classes, coaches, schools, grades, students] = await Promise.all([
+      getClassesWithSchedule(),
       getCoaches(),
+      getSchools(),
+      getGrades(),
       getStudents(classId),
     ]);
   } catch (err) {
@@ -45,11 +54,6 @@ export default async function ClassDetailPage({
   const cls = classes.find((c) => c.id === classId);
   if (!cls) notFound();
 
-  const today = new Date();
-  const week = weekRange(today);
-  const second = new Date(today);
-  second.setDate(second.getDate() + 2);
-
   return (
     <div className="space-y-8">
       <header className="space-y-1">
@@ -61,20 +65,26 @@ export default async function ClassDetailPage({
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">{cls.name}</h1>
         <p className="text-sm text-neutral-600">
-          {cls.school} · {cls.grade} ·{" "}
+          {cls.school?.name ?? "Unknown school"} ·{" "}
+          {cls.grade?.name ?? "Unknown grade"} ·{" "}
           {cls.coach ? cls.coach.name : "No coach assigned"}
         </p>
       </header>
 
       <section className="rounded-lg border border-neutral-200 bg-white p-4">
         <h2 className="mb-3 font-semibold">Class details</h2>
-        <ClassForm coaches={coaches} initial={cls} />
+        <ClassForm
+          coaches={coaches}
+          schools={schools}
+          grades={grades}
+          initial={cls}
+        />
         <div className="mt-4 border-t border-neutral-200 pt-3">
           <DeleteButton
             action={deleteClassAction}
             hidden={{ id: cls.id }}
             label="Delete this class"
-            confirmMessage={`Delete "${cls.name}"? Its lesson plans, students and report cards will all be deleted.`}
+            confirmMessage={`Delete "${cls.name}"? Its students and their report cards will be deleted. The syllabus is not affected.`}
           />
         </div>
       </section>
@@ -82,32 +92,46 @@ export default async function ClassDetailPage({
       <section className="rounded-lg border border-neutral-200 bg-white">
         <div className="border-b border-neutral-200 px-4 py-3">
           <h2 className="font-semibold">
-            Lesson plans{" "}
+            Scheduled lessons{" "}
             <span className="text-sm font-normal text-neutral-500">
-              ({cls.lesson_plans.length})
+              ({cls.lessons.length})
             </span>
           </h2>
+          <p className="text-xs text-neutral-500">
+            From {cls.school?.name ?? "the school"}&apos;s syllabus for{" "}
+            {cls.grade?.name ?? "this grade"} — admins schedule these.
+          </p>
         </div>
 
-        {cls.lesson_plans.length === 0 ? (
+        {cls.lessons.length === 0 ? (
           <p className="px-4 py-4 text-sm text-neutral-500">
-            No lesson plans yet — add the first one below.
+            Nothing scheduled for this grade yet. An admin adds lesson plans to
+            the school&apos;s syllabus.
           </p>
         ) : (
           <ul className="divide-y divide-neutral-100">
-            {cls.lesson_plans.map((plan) => (
-              <LessonPlanRow key={plan.id} plan={plan} />
+            {cls.lessons.map((lesson) => (
+              <li key={lesson.entry.id}>
+                <Link
+                  href={`/reports/${cls.id}/${lesson.entry.id}`}
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-neutral-50"
+                >
+                  <div>
+                    <p className="font-medium">{lesson.lesson_plan.title}</p>
+                    <p className="text-xs text-neutral-500">
+                      {formatDate(lesson.entry.session_date1)}
+                      {lesson.entry.session_date2
+                        ? ` · ${formatDate(lesson.entry.session_date2)}`
+                        : ""}{" "}
+                      · {lesson.filled_count}/{lesson.student_count} filled
+                    </p>
+                  </div>
+                  <StatusBadge status={lesson.status} />
+                </Link>
+              </li>
             ))}
           </ul>
         )}
-
-        <div className="border-t border-neutral-200 bg-neutral-50 p-4">
-          <h3 className="mb-3 text-sm font-semibold">Add a lesson plan</h3>
-          <LessonPlanForm
-            classId={cls.id}
-            defaultDates={{ first: week.from, second: toDateInput(second) }}
-          />
-        </div>
       </section>
 
       <section className="rounded-lg border border-neutral-200 bg-white">

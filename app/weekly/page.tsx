@@ -1,6 +1,6 @@
 import Link from "next/link";
 import StatusBadge from "@/components/StatusBadge";
-import { getClassesWithPlans } from "@/lib/data/queries";
+import { getClassesWithSchedule } from "@/lib/data/queries";
 import { addWeeks, formatDate, formatRange, weekRange } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export default async function WeeklyPage({
 
   let classes;
   try {
-    classes = await getClassesWithPlans(range);
+    classes = await getClassesWithSchedule(range);
   } catch (err) {
     return (
       <div
@@ -33,7 +33,7 @@ export default async function WeeklyPage({
     );
   }
 
-  const planCount = classes.reduce((n, c) => n + c.lesson_plans.length, 0);
+  const lessonCount = classes.reduce((n, c) => n + c.lessons.length, 0);
 
   return (
     <div className="space-y-6">
@@ -41,8 +41,8 @@ export default async function WeeklyPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Weekly View</h1>
           <p className="text-sm text-neutral-600">
-            {formatRange(range.from, range.to)} · {planCount} lesson plan
-            {planCount === 1 ? "" : "s"}
+            {formatRange(range.from, range.to)} · {lessonCount} scheduled lesson
+            {lessonCount === 1 ? "" : "s"}
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
@@ -96,8 +96,9 @@ export default async function WeeklyPage({
                     {cls.name}
                   </Link>
                   <p className="text-xs text-neutral-500">
-                    {cls.school} · {cls.grade} · {cls.student_count} student
-                    {cls.student_count === 1 ? "" : "s"}
+                    {cls.school?.name ?? "Unknown school"} ·{" "}
+                    {cls.grade?.name ?? "Unknown grade"} · {cls.student_count}{" "}
+                    student{cls.student_count === 1 ? "" : "s"}
                     {cls.coach ? ` · ${cls.coach.name}` : ""}
                   </p>
                 </div>
@@ -109,37 +110,35 @@ export default async function WeeklyPage({
                 </Link>
               </div>
 
-              {cls.lesson_plans.length === 0 ? (
+              {cls.lessons.length === 0 ? (
                 <p className="px-4 py-4 text-sm text-neutral-500">
-                  No lesson plans this week.{" "}
-                  <Link
-                    href={`/classes/${cls.id}`}
-                    className="font-medium text-neutral-900 underline"
-                  >
-                    Add one
-                  </Link>
-                  .
+                  Nothing on the syllabus for {cls.grade?.name ?? "this grade"}{" "}
+                  this week.
                 </p>
               ) : (
                 <ul className="divide-y divide-neutral-100">
-                  {cls.lesson_plans.map((plan) => (
-                    <li key={plan.id}>
+                  {cls.lessons.map((lesson) => (
+                    <li key={lesson.entry.id}>
                       <Link
-                        href={`/reports/${plan.id}`}
+                        href={`/reports/${cls.id}/${lesson.entry.id}`}
                         className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-neutral-50"
                       >
                         <div>
-                          <div className="font-medium">{plan.title}</div>
+                          <div className="font-medium">
+                            {lesson.lesson_plan.title}
+                          </div>
                           <div className="text-xs text-neutral-500">
-                            {formatDate(plan.session_date1)} ·{" "}
-                            {formatDate(plan.session_date2)}
+                            {formatDate(lesson.entry.session_date1)}
+                            {lesson.entry.session_date2
+                              ? ` · ${formatDate(lesson.entry.session_date2)}`
+                              : ""}
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-xs text-neutral-500">
-                            {plan.filled_count}/{plan.student_count} filled
+                            {lesson.filled_count}/{lesson.student_count} filled
                           </span>
-                          <StatusBadge status={plan.status} />
+                          <StatusBadge status={lesson.status} />
                         </div>
                       </Link>
                     </li>

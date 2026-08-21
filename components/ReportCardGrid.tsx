@@ -5,11 +5,17 @@ import { saveReportCardGrid } from "@/lib/actions/report-cards";
 import type { Attendance, ReportCardRow } from "@/lib/types";
 
 type Props = {
-  lessonPlanId: string;
+  syllabusEntryId: string;
   initialRows: ReportCardRow[];
+  /** Syllabus entries may schedule one session or two. */
+  hasSecondSession: boolean;
 };
 
-export default function ReportCardGrid({ lessonPlanId, initialRows }: Props) {
+export default function ReportCardGrid({
+  syllabusEntryId,
+  initialRows,
+  hasSecondSession,
+}: Props) {
   const [rows, setRows] = useState<ReportCardRow[]>(initialRows);
   const [baseline, setBaseline] = useState<ReportCardRow[]>(initialRows);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +41,9 @@ export default function ReportCardGrid({ lessonPlanId, initialRows }: Props) {
       prev.map((r) => ({
         ...r,
         attendance_session1: attendance,
-        attendance_session2: attendance,
+        attendance_session2: hasSecondSession
+          ? attendance
+          : r.attendance_session2,
       })),
     );
     setSavedAt(null);
@@ -45,7 +53,7 @@ export default function ReportCardGrid({ lessonPlanId, initialRows }: Props) {
     setError(null);
     startTransition(async () => {
       const result = await saveReportCardGrid(
-        lessonPlanId,
+        syllabusEntryId,
         rows.map((r) => ({
           student_id: r.student_id,
           attendance_session1: r.attendance_session1,
@@ -107,7 +115,9 @@ export default function ReportCardGrid({ lessonPlanId, initialRows }: Props) {
             <tr>
               <th className="px-3 py-2 font-semibold">Student</th>
               <th className="px-3 py-2 font-semibold">Session 1</th>
-              <th className="px-3 py-2 font-semibold">Session 2</th>
+              {hasSecondSession && (
+                <th className="px-3 py-2 font-semibold">Session 2</th>
+              )}
               <th className="px-3 py-2 font-semibold">Assessment</th>
               <th className="px-3 py-2 font-semibold">Right behaviour</th>
               <th className="px-3 py-2 font-semibold">Notes</th>
@@ -131,13 +141,17 @@ export default function ReportCardGrid({ lessonPlanId, initialRows }: Props) {
                     onChange={(v) => update(row.student_id, { attendance_session1: v })}
                   />
                 </td>
-                <td className="px-3 py-2 align-top">
-                  <AttendanceSelect
-                    value={row.attendance_session2}
-                    label={`${row.student_name} session 2 attendance`}
-                    onChange={(v) => update(row.student_id, { attendance_session2: v })}
-                  />
-                </td>
+                {hasSecondSession && (
+                  <td className="px-3 py-2 align-top">
+                    <AttendanceSelect
+                      value={row.attendance_session2}
+                      label={`${row.student_name} session 2 attendance`}
+                      onChange={(v) =>
+                        update(row.student_id, { attendance_session2: v })
+                      }
+                    />
+                  </td>
+                )}
                 <td className="px-3 py-2 align-top">
                   <Cell
                     value={row.assessment}

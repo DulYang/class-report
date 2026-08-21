@@ -2,11 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import {
-  createClass,
-  deleteClass,
-  updateClass,
-} from "@/lib/data/mutations";
+import { createClass, deleteClass, updateClass } from "@/lib/data/mutations";
 import type { ActionResult } from "@/lib/types";
 
 function field(formData: FormData, name: string): string {
@@ -16,8 +12,8 @@ function field(formData: FormData, name: string): string {
 
 type ClassInput = {
   name: string;
-  school: string;
-  grade: string;
+  school_id: string;
+  grade_id: string;
   coach_id: string | null;
 };
 
@@ -27,17 +23,22 @@ type Parsed =
 
 function readClassInput(formData: FormData): Parsed {
   const name = field(formData, "name");
-  const school = field(formData, "school");
-  const grade = field(formData, "grade");
+  const schoolId = field(formData, "school_id");
+  const gradeId = field(formData, "grade_id");
   const coachId = field(formData, "coach_id");
 
   if (!name) return { valid: false, error: "Class name is required." };
-  if (!school) return { valid: false, error: "School is required." };
-  if (!grade) return { valid: false, error: "Grade is required." };
+  if (!schoolId) return { valid: false, error: "Pick a school." };
+  if (!gradeId) return { valid: false, error: "Pick a grade." };
 
   return {
     valid: true,
-    input: { name, school, grade, coach_id: coachId || null },
+    input: {
+      name,
+      school_id: schoolId,
+      grade_id: gradeId,
+      coach_id: coachId || null,
+    },
   };
 }
 
@@ -92,10 +93,7 @@ export async function updateClassAction(
   return { ok: true };
 }
 
-/**
- * Deleting a class cascades to its lesson plans, students and report cards
- * (see the FK definitions in 0001_init.sql), so the UI warns before calling.
- */
+/** Deleting a class cascades to its students and their report cards. */
 export async function deleteClassAction(formData: FormData): Promise<void> {
   const id = field(formData, "id");
   if (!id) return;

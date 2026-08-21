@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import ObjectivesPanel from "@/components/ObjectivesPanel";
 import ReportCardGrid from "@/components/ReportCardGrid";
 import { getReportCardRows } from "@/lib/data/queries";
 import { formatDate } from "@/lib/format";
@@ -9,13 +10,13 @@ export const dynamic = "force-dynamic";
 export default async function ReportCardPage({
   params,
 }: {
-  params: Promise<{ lessonPlanId: string }>;
+  params: Promise<{ classId: string; entryId: string }>;
 }) {
-  const { lessonPlanId } = await params;
+  const { classId, entryId } = await params;
 
   let result;
   try {
-    result = await getReportCardRows(lessonPlanId);
+    result = await getReportCardRows(classId, entryId);
   } catch (err) {
     return (
       <ErrorState message={err instanceof Error ? err.message : "Unknown error"} />
@@ -23,7 +24,7 @@ export default async function ReportCardPage({
   }
 
   if (!result) notFound();
-  const { plan, cls, rows } = result;
+  const { entry, plan, objectives, cls, school, grade, rows } = result;
 
   return (
     <div className="space-y-6">
@@ -34,9 +35,11 @@ export default async function ReportCardPage({
         >
           ← Weekly view
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight">{plan.title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {plan?.title ?? "Lesson plan missing"}
+        </h1>
         <p className="text-sm text-neutral-600">
-          {cls ? (
+          {cls && (
             <>
               <Link
                 href={`/classes/${cls.id}`}
@@ -44,13 +47,18 @@ export default async function ReportCardPage({
               >
                 {cls.name}
               </Link>{" "}
-              · {cls.school} · {cls.grade} ·{" "}
+              · {school?.name ?? "Unknown school"} ·{" "}
+              {grade?.name ?? "Unknown grade"} ·{" "}
             </>
-          ) : null}
-          Session 1 {formatDate(plan.session_date1)} · Session 2{" "}
-          {formatDate(plan.session_date2)}
+          )}
+          Session 1 {formatDate(entry.session_date1)}
+          {entry.session_date2
+            ? ` · Session 2 ${formatDate(entry.session_date2)}`
+            : ""}
         </p>
       </header>
+
+      <ObjectivesPanel objectives={objectives} />
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-neutral-300 p-8 text-center">
@@ -68,7 +76,11 @@ export default async function ReportCardPage({
           )}
         </div>
       ) : (
-        <ReportCardGrid lessonPlanId={plan.id} initialRows={rows} />
+        <ReportCardGrid
+          syllabusEntryId={entry.id}
+          initialRows={rows}
+          hasSecondSession={Boolean(entry.session_date2)}
+        />
       )}
     </div>
   );

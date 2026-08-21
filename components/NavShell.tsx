@@ -3,41 +3,98 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { signOutAction } from "@/lib/actions/auth";
 
-const SECTIONS = [
+const COACH_SECTIONS = [
   { href: "/weekly", label: "Weekly View" },
   { href: "/classes", label: "Classes" },
   { href: "/students", label: "Students" },
   { href: "/reports", label: "Reports" },
 ];
 
-export default function NavShell({ children }: { children: React.ReactNode }) {
+const ADMIN_SECTIONS = [
+  { href: "/admin", label: "Overview", exact: true },
+  { href: "/admin/schools", label: "Schools & Grades" },
+  { href: "/admin/coaches", label: "Coaches" },
+  { href: "/admin/curriculum", label: "Curriculum" },
+  { href: "/admin/syllabus", label: "Syllabus" },
+];
+
+export default function NavShell({
+  children,
+  adminName,
+}: {
+  children: React.ReactNode;
+  adminName: string | null;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   // Any navigation closes the mobile drawer.
   useEffect(() => setOpen(false), [pathname]);
 
-  function isActive(href: string) {
-    return pathname === href || pathname.startsWith(`${href}/`);
+  function isActive(href: string, exact = false) {
+    return exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+  }
+
+  function linkClass(href: string, exact = false) {
+    return `block rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+      isActive(href, exact)
+        ? "bg-neutral-900 text-white"
+        : "text-neutral-700 hover:bg-neutral-100"
+    }`;
   }
 
   const nav = (
-    <nav className="space-y-1">
-      {SECTIONS.map((s) => (
-        <Link
-          key={s.href}
-          href={s.href}
-          className={`block rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-            isActive(s.href)
-              ? "bg-neutral-900 text-white"
-              : "text-neutral-700 hover:bg-neutral-100"
-          }`}
-        >
-          {s.label}
-        </Link>
-      ))}
-    </nav>
+    <div className="space-y-5">
+      <nav className="space-y-1">
+        {COACH_SECTIONS.map((s) => (
+          <Link key={s.href} href={s.href} className={linkClass(s.href)}>
+            {s.label}
+          </Link>
+        ))}
+      </nav>
+
+      <div>
+        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          Admin
+        </p>
+        {adminName ? (
+          <nav className="space-y-1">
+            {ADMIN_SECTIONS.map((s) => (
+              <Link
+                key={s.href}
+                href={s.href}
+                className={linkClass(s.href, s.exact)}
+              >
+                {s.label}
+              </Link>
+            ))}
+          </nav>
+        ) : (
+          <Link href="/login" className={linkClass("/login")}>
+            Sign in
+          </Link>
+        )}
+      </div>
+
+      {adminName && (
+        <div className="border-t border-neutral-200 pt-3">
+          <p className="px-3 pb-2 text-xs text-neutral-500">
+            Signed in as{" "}
+            <span className="font-medium text-neutral-700">{adminName}</span>
+          </p>
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
   );
 
   return (

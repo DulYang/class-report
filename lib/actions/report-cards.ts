@@ -12,12 +12,12 @@ function toText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-/** Core engine write: persist the whole report card grid for a lesson plan. */
+/** Core engine write: persist the whole grid for one scheduled lesson. */
 export async function saveReportCardGrid(
-  lessonPlanId: string,
+  syllabusEntryId: string,
   rows: ReportCardInput[],
 ): Promise<ActionResult> {
-  if (!lessonPlanId) return { ok: false, error: "Missing lesson plan." };
+  if (!syllabusEntryId) return { ok: false, error: "Missing scheduled lesson." };
   if (!Array.isArray(rows) || rows.length === 0) {
     return { ok: false, error: "There are no students to save." };
   }
@@ -36,7 +36,7 @@ export async function saveReportCardGrid(
   if (clean.length === 0) return { ok: false, error: "No valid rows to save." };
 
   try {
-    await saveReportCards(lessonPlanId, clean);
+    await saveReportCards(syllabusEntryId, clean);
   } catch (err) {
     return {
       ok: false,
@@ -46,7 +46,6 @@ export async function saveReportCardGrid(
 
   revalidatePath("/");
   revalidatePath("/weekly");
-  revalidatePath("/reports");
-  revalidatePath(`/reports/${lessonPlanId}`);
+  revalidatePath("/reports", "layout");
   return { ok: true };
 }

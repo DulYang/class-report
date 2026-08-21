@@ -1,24 +1,56 @@
 # Class Report — Security
 
-## v1 (Demo-First)
-- No auth wall. All tables have permissive RLS for anonymous read/write so the app renders with seed data.
-- No secrets in frontend. Supabase anon key is public-safe; service key only in server actions/edge functions.
-- RLS enabled on all tables with permissive policies.
+## Where we are now
 
-## Lockdown (later sprint, before real users)
-- Login/signup via Supabase Auth
-- **Coaches**: RLS scoped to `classes.user_id = auth.uid()` — can only see/edit their own classes, lesson plans, students, and report cards
-- **Admins**: role-based policy granting full read across all classes; write to classes/lesson_plans/students
-- Report cards: editable by the owning coach or any admin
-- Service key never exposed to client; all mutations go through server actions
+**Admins sign in; coaches do not.** Supabase Auth (email + password) gates the
+whole `/admin` section. The coach-facing screens — weekly view, classes,
+students, report card grid — stay open so the app remains demoable.
 
-## Approved-Tools Rule
-- Only named server actions may mutate data. No raw SQL passthrough from client.
-- No `run_any` / `send_any` patterns. Every mutation is a specific, named function.
+### Two layers, not one
+1. `app/admin/layout.tsx` calls `requireAdmin()`, redirecting anyone without an
+   admin session to `/login`. Every admin server action re-checks with
+   `adminGuard()`.
+2. RLS enforces the same rule in the database, so a forged request that skips
+   the UI still fails. Verified against the live project: anonymous `INSERT`
+   into `schools`, `grades`, `curricula`, `lesson_plans`,
+   `assessment_objectives` and `syllabus_entries` all return
+   `42501 new row violates row-level security policy`, while `SELECT` returns
+   200.
 
-## Audit Principle
-- Every create/update/delete on report_cards logs actor, timestamp, before/after (implemented at lockdown)
-- v1 relies on Supabase default timestamps (`created_at`, `updated_at`)
+### Admin identity
+An admin is an `auth.users` row whose `coaches` record has
+`role = 'admin'` and a matching `user_id`. `private.is_admin()` is the single
+definition, used by every write policy.
 
-## Honesty Note
-RLS owner-scoping and role separation need real testing with multiple auth users before going live. If the builder is unsure, stop and get human help on RLS policy testing.
+### First-admin bootstrap
+`/login` shows a one-time "set up the first admin" form while
+`private.admin_bootstrap_open()` is true — that is, until some admin record has
+a `user_id`. The matching RLS policy on `coaches` allows exactly that one
+insert. Once the first admin exists, both the form and the policy close
+permanently; further admins are added from the Coaches page.
+
+This is a deliberate, self-closing hole: before the first admin there is no one
+who could authorize the first admin.
+
+### Helper functions are not public API
+`is_admin()` and `admin_bootstrap_open()` are `SECURITY DEFINER` with
+`search_path = public, pg_temp`, and live in the `private` schema. PostgREST
+only exposes `public`, so they are not reachable at `/rest/v1/rpc/...`.
+Revoking `EXECUTE` instead would break the policies, since RLS expressions are
+evaluated as the querying role. Supabase's security advisor reports no findings.
+
+## Not done yet — do not put real student data in this
+- **Coaches are not scoped.** The coach screens are open to anyone with the URL,
+  and any visitor can edit any class, student or report card. Locking this down
+  means giving coaches logins and rewriting the coach-facing policies to
+  `classes.user_id = auth.uid()`, with admins seeing everything.
+- **No audit log** on report card edits.
+- **Adding an admin login** for someone else needs a `SUPABASE_SERVICE_ROLE_KEY`
+  on the server; marking a coach as "admin" today records the role but creates
+  no account.
+- RLS role separation needs testing with two real auth users before go-live. If
+  unsure, get human help on RLS policy testing.
+
+## Always
+- Service-role keys never reach frontend code. The browser only ever sees
+  `NEXT_PUBLIC_SUPABASE_URL` and the anon key.
