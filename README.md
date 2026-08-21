@@ -21,11 +21,15 @@ Coaches do not sign in; the weekly view and grid are open. Admins sign in at
 
 ## How it fits together
 
-There is no "class". A **school** runs **grades**; a **curriculum** targets one
-grade and holds **lesson plans**, each with **assessment objectives**; a
-school's **syllabus** schedules those lesson plans onto dates. **Students**
-belong to a school and a grade. A **coach** is assigned to a (school, grade) and
-inherits every session scheduled for it.
+There is no "class". A **school** runs **grades**. A **lesson plan** is a plain
+reusable title; a **curriculum** is just that lesson plan paired with one
+grade, carrying that grade's **assessment objectives** — the same lesson plan
+can pair with several grades, each with different objectives. A school's
+**syllabus** schedules a lesson plan onto dates, with no grade of its own —
+every grade at that school studies it that day, so a report card is keyed by
+(scheduled session, grade). **Students** belong to a school and a grade. A
+**coach** is assigned to a (school, grade) and inherits every session
+scheduled for it.
 
 ## Stack
 

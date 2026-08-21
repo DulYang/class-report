@@ -52,6 +52,17 @@ export function getGrades(): Promise<Grade[]> {
   return all<Grade>("grades", "name");
 }
 
+export async function getGrade(id: string): Promise<Grade | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("grades")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as Grade) ?? null;
+}
+
 export function getCoaches(): Promise<Coach[]> {
   return all<Coach>("coaches", "name");
 }
@@ -60,12 +71,24 @@ export function getCoachAssignments(): Promise<CoachAssignment[]> {
   return all<CoachAssignment>("coach_assignments");
 }
 
+/** The (lesson_plan, grade) pairings — this is the whole of "curriculum". */
 export function getCurricula(): Promise<Curriculum[]> {
-  return all<Curriculum>("curricula", "name");
+  return all<Curriculum>("curricula");
 }
 
 export function getLessonPlans(): Promise<LessonPlan[]> {
   return all<LessonPlan>("lesson_plans", "title");
+}
+
+export async function getLessonPlan(id: string): Promise<LessonPlan | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("lesson_plans")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as LessonPlan) ?? null;
 }
 
 export function getStudents(): Promise<Student[]> {
@@ -73,13 +96,13 @@ export function getStudents(): Promise<Student[]> {
 }
 
 export async function getObjectives(
-  lessonPlanId: string,
+  curriculumId: string,
 ): Promise<AssessmentObjective[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("assessment_objectives")
     .select("*")
-    .eq("lesson_plan_id", lessonPlanId)
+    .eq("curriculum_id", curriculumId)
     .order("sort_order");
   if (error) throw new Error(error.message);
   return (data ?? []) as AssessmentObjective[];
@@ -97,48 +120,72 @@ export async function getGradesWithSchool(): Promise<
   }));
 }
 
-// ── admin: curriculum ──────────────────────────────────────────────────────
+// ── admin: curriculum (lesson plan × grade × objectives) ──────────────────
 
-/** One curriculum with its grade, school, lesson plans and their objectives. */
-export async function getCurriculumDetail(id: string): Promise<{
-  curriculum: Curriculum;
-  grade: Grade | null;
-  school: School | null;
-  plans: (LessonPlan & { objectives: AssessmentObjective[] })[];
-} | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("curricula")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) return null;
-  const curriculum = data as Curriculum;
+export type LessonPlanWithGrades = {
+  plan: LessonPlan;
+  grades: { curriculum: Curriculum; grade: Grade | null; school: School | null }[];
+};
 
-  const [gradeRes, plansRes] = await Promise.all([
-    supabase.from("grades").select("*").eq("id", curriculum.grade_id).maybeSingle(),
-    supabase
-      .from("lesson_plans")
-      .select("*")
-      .eq("curriculum_id", id)
-      .order("sort_order"),
+/** Every lesson plan with the grades it's paired to, for the index list. */
+export async function getLessonPlansWithGrades(): Promise<LessonPlanWithGrades[]> {
+  const [plans, curricula, grades, schools] = await Promise.all([
+    getLessonPlans(),
+    getCurricula(),
+    getGrades(),
+    getSchools(),
   ]);
-  if (gradeRes.error) throw new Error(gradeRes.error.message);
-  if (plansRes.error) throw new Error(plansRes.error.message);
+  const gradeById = new Map(grades.map((g) => [g.id, g]));
+  const schoolById = new Map(schools.map((s) => [s.id, s]));
 
-  const grade = (gradeRes.data as Grade) ?? null;
-  const plans = (plansRes.data ?? []) as LessonPlan[];
-  const school = grade ? await getSchool(grade.school_id) : null;
+  return plans.map((plan) => ({
+    plan,
+    grades: curricula
+      .filter((c) => c.lesson_plan_id === plan.id)
+      .map((curriculum) => {
+        const grade = gradeById.get(curriculum.grade_id) ?? null;
+        return {
+          curriculum,
+          grade,
+          school: grade ? (schoolById.get(grade.school_id) ?? null) : null,
+        };
+      }),
+  }));
+}
+
+/** One lesson plan with every grade it's paired to, each with its objectives. */
+export async function getLessonPlanDetail(id: string): Promise<{
+  plan: LessonPlan;
+  pairings: {
+    curriculum: Curriculum;
+    grade: Grade | null;
+    school: School | null;
+    objectives: AssessmentObjective[];
+  }[];
+} | null> {
+  const plan = await getLessonPlan(id);
+  if (!plan) return null;
+
+  const supabase = await createClient();
+  const [curriculaRes, grades, schools] = await Promise.all([
+    supabase.from("curricula").select("*").eq("lesson_plan_id", id),
+    getGrades(),
+    getSchools(),
+  ]);
+  if (curriculaRes.error) throw new Error(curriculaRes.error.message);
+
+  const curricula = (curriculaRes.data ?? []) as Curriculum[];
+  const gradeById = new Map(grades.map((g) => [g.id, g]));
+  const schoolById = new Map(schools.map((s) => [s.id, s]));
 
   let objectives: AssessmentObjective[] = [];
-  if (plans.length > 0) {
+  if (curricula.length > 0) {
     const objRes = await supabase
       .from("assessment_objectives")
       .select("*")
       .in(
-        "lesson_plan_id",
-        plans.map((p) => p.id),
+        "curriculum_id",
+        curricula.map((c) => c.id),
       )
       .order("sort_order");
     if (objRes.error) throw new Error(objRes.error.message);
@@ -146,56 +193,23 @@ export async function getCurriculumDetail(id: string): Promise<{
   }
 
   return {
-    curriculum,
-    grade,
-    school,
-    plans: plans.map((p) => ({
-      ...p,
-      objectives: objectives.filter((o) => o.lesson_plan_id === p.id),
-    })),
-  };
-}
-
-export type LessonPlanOption = {
-  plan: LessonPlan;
-  curriculum: Curriculum;
-  grade: Grade | null;
-  school: School | null;
-};
-
-/** Lesson plans across every curriculum, labelled with grade + school. */
-export async function getLessonPlanOptions(): Promise<LessonPlanOption[]> {
-  const [plans, curricula, grades, schools] = await Promise.all([
-    getLessonPlans(),
-    getCurricula(),
-    getGrades(),
-    getSchools(),
-  ]);
-  const curriculumById = new Map(curricula.map((c) => [c.id, c]));
-  const gradeById = new Map(grades.map((g) => [g.id, g]));
-  const schoolById = new Map(schools.map((s) => [s.id, s]));
-
-  return plans.flatMap((plan) => {
-    const curriculum = curriculumById.get(plan.curriculum_id);
-    if (!curriculum) return [];
-    const grade = gradeById.get(curriculum.grade_id) ?? null;
-    return [
-      {
-        plan,
+    plan,
+    pairings: curricula.map((curriculum) => {
+      const grade = gradeById.get(curriculum.grade_id) ?? null;
+      return {
         curriculum,
         grade,
         school: grade ? (schoolById.get(grade.school_id) ?? null) : null,
-      },
-    ];
-  });
+        objectives: objectives.filter((o) => o.curriculum_id === curriculum.id),
+      };
+    }),
+  };
 }
 
-/** A school's syllabus: which lesson plans are taught, and when. */
+/** A school's syllabus: which lesson plans are taught, and when. Applies to every grade at the school. */
 export async function getSyllabus(
   schoolId: string,
-): Promise<
-  { entry: SyllabusEntry; plan: LessonPlan | null; grade: Grade | null }[]
-> {
+): Promise<{ entry: SyllabusEntry; plan: LessonPlan | null }[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("syllabus_entries")
@@ -205,24 +219,13 @@ export async function getSyllabus(
   if (error) throw new Error(error.message);
   const entries = (data ?? []) as SyllabusEntry[];
 
-  const [plans, curricula, grades] = await Promise.all([
-    getLessonPlans(),
-    getCurricula(),
-    getGrades(),
-  ]);
+  const plans = await getLessonPlans();
   const planById = new Map(plans.map((p) => [p.id, p]));
-  const curriculumById = new Map(curricula.map((c) => [c.id, c]));
-  const gradeById = new Map(grades.map((g) => [g.id, g]));
 
-  return entries.map((entry) => {
-    const plan = planById.get(entry.lesson_plan_id) ?? null;
-    const curriculum = plan ? curriculumById.get(plan.curriculum_id) : undefined;
-    return {
-      entry,
-      plan,
-      grade: curriculum ? (gradeById.get(curriculum.grade_id) ?? null) : null,
-    };
-  });
+  return entries.map((entry) => ({
+    entry,
+    plan: planById.get(entry.lesson_plan_id) ?? null,
+  }));
 }
 
 /** Every student with the school and grade they sit in — admin roster. */
@@ -247,10 +250,12 @@ export async function getRoster(): Promise<
 // ── coach domain ───────────────────────────────────────────────────────────
 
 /**
- * The week's sessions, grouped by the coach who owns them. A session belongs to
- * a coach when it is scheduled at a school and its lesson plan sits in a
- * curriculum for a grade that coach is assigned to. Sessions nobody is assigned
- * to are collected under a null coach so they are never hidden.
+ * The week's sessions, grouped by the coach who owns them. Scheduling a lesson
+ * plan at a school covers every grade there, so one syllabus entry can produce
+ * several sessions — one per grade — each with its own roster and fill count.
+ * A session belongs to a coach when that coach is assigned to its (school,
+ * grade) pair. Pairs nobody is assigned to are collected under a null coach so
+ * they are never hidden.
  */
 export async function getWeeklySchedule(range?: {
   from: string;
@@ -258,12 +263,11 @@ export async function getWeeklySchedule(range?: {
 }): Promise<CoachSchedule[]> {
   const supabase = await createClient();
 
-  const [coaches, schools, grades, curricula, plans, assignments, students] =
+  const [coaches, schools, grades, plans, assignments, students] =
     await Promise.all([
       getCoaches(),
       getSchools(),
       getGrades(),
-      getCurricula(),
       getLessonPlans(),
       getCoachAssignments(),
       getStudents(),
@@ -298,8 +302,15 @@ export async function getWeeklySchedule(range?: {
 
   const schoolById = new Map(schools.map((s) => [s.id, s]));
   const gradeById = new Map(grades.map((g) => [g.id, g]));
-  const curriculumById = new Map(curricula.map((c) => [c.id, c]));
   const planById = new Map(plans.map((p) => [p.id, p]));
+  const studentGradeById = new Map(students.map((s) => [s.id, s.grade_id]));
+
+  const gradesBySchool = new Map<string, Grade[]>();
+  for (const g of grades) {
+    const arr = gradesBySchool.get(g.school_id) ?? [];
+    arr.push(g);
+    gradesBySchool.set(g.school_id, arr);
+  }
 
   const rosterSize = new Map<string, number>();
   for (const s of students) {
@@ -307,59 +318,46 @@ export async function getWeeklySchedule(range?: {
     rosterSize.set(key, (rosterSize.get(key) ?? 0) + 1);
   }
 
-  const filledByEntry = new Map<string, number>();
+  const filledByEntryGrade = new Map<string, number>();
   for (const card of cards) {
-    filledByEntry.set(
-      card.syllabus_entry_id,
-      (filledByEntry.get(card.syllabus_entry_id) ?? 0) + 1,
-    );
+    const gradeId = studentGradeById.get(card.student_id);
+    if (!gradeId) continue;
+    const key = `${card.syllabus_entry_id}:${gradeId}`;
+    filledByEntryGrade.set(key, (filledByEntryGrade.get(key) ?? 0) + 1);
   }
 
-  /** The grade a syllabus entry targets, via its plan's curriculum. */
-  function gradeOfEntry(entry: SyllabusEntry): string | null {
+  function toSession(entry: SyllabusEntry, grade: Grade): ScheduledSession | null {
     const plan = planById.get(entry.lesson_plan_id);
     if (!plan) return null;
-    return curriculumById.get(plan.curriculum_id)?.grade_id ?? null;
-  }
-
-  function toSession(entry: SyllabusEntry): ScheduledSession | null {
-    const plan = planById.get(entry.lesson_plan_id);
-    if (!plan) return null;
-    const gradeId = gradeOfEntry(entry);
-    const studentCount = gradeId
-      ? (rosterSize.get(`${entry.school_id}:${gradeId}`) ?? 0)
-      : 0;
-    const filled = filledByEntry.get(entry.id) ?? 0;
+    const studentCount = rosterSize.get(`${entry.school_id}:${grade.id}`) ?? 0;
+    const filled = filledByEntryGrade.get(`${entry.id}:${grade.id}`) ?? 0;
     return {
       entry,
       lesson_plan: plan,
       school: schoolById.get(entry.school_id) ?? null,
-      grade: gradeId ? (gradeById.get(gradeId) ?? null) : null,
+      grade,
       student_count: studentCount,
       filled_count: filled,
       status: fillStatus(studentCount, filled),
     };
   }
 
-  const claimed = new Set<string>();
   const result: CoachSchedule[] = [];
 
   for (const coach of coaches) {
     const mine = assignments.filter((a) => a.coach_id === coach.id);
     if (mine.length === 0) continue;
 
-    const owns = (entry: SyllabusEntry) => {
-      const gradeId = gradeOfEntry(entry);
-      return mine.some(
-        (a) => a.school_id === entry.school_id && a.grade_id === gradeId,
-      );
-    };
-
-    const sessions = entries.filter(owns).flatMap((e) => {
-      claimed.add(e.id);
-      const session = toSession(e);
-      return session ? [session] : [];
-    });
+    const sessions: ScheduledSession[] = [];
+    for (const a of mine) {
+      const grade = gradeById.get(a.grade_id);
+      if (!grade) continue;
+      for (const entry of entries) {
+        if (entry.school_id !== a.school_id) continue;
+        const session = toSession(entry, grade);
+        if (session) sessions.push(session);
+      }
+    }
 
     result.push({
       coach,
@@ -371,16 +369,21 @@ export async function getWeeklySchedule(range?: {
     });
   }
 
-  const orphaned = entries.filter((e) => !claimed.has(e.id));
-  if (orphaned.length > 0) {
-    result.push({
-      coach: null,
-      grades: [],
-      sessions: orphaned.flatMap((e) => {
-        const session = toSession(e);
-        return session ? [session] : [];
-      }),
-    });
+  // (school, grade) pairs nobody is assigned to still need their sessions shown.
+  const assignedPairs = new Set(
+    assignments.map((a) => `${a.school_id}:${a.grade_id}`),
+  );
+  const orphanSessions: ScheduledSession[] = [];
+  for (const entry of entries) {
+    const gradesHere = gradesBySchool.get(entry.school_id) ?? [];
+    for (const grade of gradesHere) {
+      if (assignedPairs.has(`${entry.school_id}:${grade.id}`)) continue;
+      const session = toSession(entry, grade);
+      if (session) orphanSessions.push(session);
+    }
+  }
+  if (orphanSessions.length > 0) {
+    result.push({ coach: null, grades: [], sessions: orphanSessions });
   }
 
   return result;
@@ -388,10 +391,14 @@ export async function getWeeklySchedule(range?: {
 
 /**
  * The core read for the report card editor: every student at the session's
- * school in the grade its lesson plan targets, pre-filled with their saved
- * card, plus the plan's assessment objectives so the coach sees the goal.
+ * school in the given grade, pre-filled with their saved card, plus that
+ * (lesson plan, grade) pairing's assessment objectives so the coach sees the
+ * goal — the same lesson plan can carry different objectives per grade.
  */
-export async function getReportCardRows(entryId: string): Promise<{
+export async function getReportCardRows(
+  entryId: string,
+  gradeId: string,
+): Promise<{
   entry: SyllabusEntry;
   plan: LessonPlan | null;
   objectives: AssessmentObjective[];
@@ -411,7 +418,7 @@ export async function getReportCardRows(entryId: string): Promise<{
   if (!entryRes.data) return null;
   const entry = entryRes.data as SyllabusEntry;
 
-  const [planRes, cardsRes, school] = await Promise.all([
+  const [planRes, cardsRes, school, grade, studentsRes] = await Promise.all([
     supabase
       .from("lesson_plans")
       .select("*")
@@ -419,62 +426,51 @@ export async function getReportCardRows(entryId: string): Promise<{
       .maybeSingle(),
     supabase.from("report_cards").select("*").eq("syllabus_entry_id", entryId),
     getSchool(entry.school_id),
-  ]);
-  if (planRes.error) throw new Error(planRes.error.message);
-  if (cardsRes.error) throw new Error(cardsRes.error.message);
-
-  const plan = (planRes.data as LessonPlan) ?? null;
-
-  let grade: Grade | null = null;
-  if (plan) {
-    const curRes = await supabase
-      .from("curricula")
-      .select("grade_id")
-      .eq("id", plan.curriculum_id)
-      .maybeSingle();
-    if (curRes.error) throw new Error(curRes.error.message);
-    const gradeId = (curRes.data as { grade_id: string } | null)?.grade_id;
-    if (gradeId) {
-      const gradeRes = await supabase
-        .from("grades")
-        .select("*")
-        .eq("id", gradeId)
-        .maybeSingle();
-      if (gradeRes.error) throw new Error(gradeRes.error.message);
-      grade = (gradeRes.data as Grade) ?? null;
-    }
-  }
-
-  let students: Student[] = [];
-  if (grade) {
-    const studentsRes = await supabase
+    getGrade(gradeId),
+    supabase
       .from("students")
       .select("*")
       .eq("school_id", entry.school_id)
-      .eq("grade_id", grade.id)
-      .order("name");
-    if (studentsRes.error) throw new Error(studentsRes.error.message);
-    students = (studentsRes.data ?? []) as Student[];
+      .eq("grade_id", gradeId)
+      .order("name"),
+  ]);
+  if (planRes.error) throw new Error(planRes.error.message);
+  if (cardsRes.error) throw new Error(cardsRes.error.message);
+  if (studentsRes.error) throw new Error(studentsRes.error.message);
+  if (!grade) return null;
+
+  const plan = (planRes.data as LessonPlan) ?? null;
+  const students = (studentsRes.data ?? []) as Student[];
+
+  let objectives: AssessmentObjective[] = [];
+  if (plan) {
+    const curRes = await supabase
+      .from("curricula")
+      .select("id")
+      .eq("lesson_plan_id", plan.id)
+      .eq("grade_id", gradeId)
+      .maybeSingle();
+    if (curRes.error) throw new Error(curRes.error.message);
+    const curriculumId = (curRes.data as { id: string } | null)?.id;
+    if (curriculumId) objectives = await getObjectives(curriculumId);
   }
 
-  let coaches: Coach[] = [];
-  if (grade) {
-    const [assignments, allCoaches] = await Promise.all([
-      getCoachAssignments(),
-      getCoaches(),
-    ]);
-    const ids = new Set(
-      assignments
-        .filter((a) => a.school_id === entry.school_id && a.grade_id === grade.id)
-        .map((a) => a.coach_id),
-    );
-    coaches = allCoaches.filter((c) => ids.has(c.id));
-  }
+  const [assignments, allCoaches] = await Promise.all([
+    getCoachAssignments(),
+    getCoaches(),
+  ]);
+  const coachIds = new Set(
+    assignments
+      .filter((a) => a.school_id === entry.school_id && a.grade_id === gradeId)
+      .map((a) => a.coach_id),
+  );
+  const coaches = allCoaches.filter((c) => coachIds.has(c.id));
 
-  const objectives = plan ? await getObjectives(plan.id) : [];
-
+  const studentIds = new Set(students.map((s) => s.id));
   const cardByStudent = new Map(
-    ((cardsRes.data ?? []) as ReportCard[]).map((c) => [c.student_id, c]),
+    ((cardsRes.data ?? []) as ReportCard[])
+      .filter((c) => studentIds.has(c.student_id))
+      .map((c) => [c.student_id, c]),
   );
 
   const rows: ReportCardRow[] = students.map((s) => {
@@ -501,14 +497,15 @@ export async function getAllReportCards(): Promise<
     student_name: string;
     plan_title: string;
     entry_id: string;
+    grade_id: string;
     school_id: string;
     school: string;
     grade: string;
   }[]
 > {
   const supabase = await createClient();
-  const [cardsRes, students, entries, plans, curricula, schools, grades] =
-    await Promise.all([
+  const [cardsRes, students, entries, plans, schools, grades] = await Promise.all(
+    [
       supabase
         .from("report_cards")
         .select("*")
@@ -516,16 +513,15 @@ export async function getAllReportCards(): Promise<
       getStudents(),
       all<SyllabusEntry>("syllabus_entries"),
       getLessonPlans(),
-      getCurricula(),
       getSchools(),
       getGrades(),
-    ]);
+    ],
+  );
   if (cardsRes.error) throw new Error(cardsRes.error.message);
 
   const studentById = new Map(students.map((s) => [s.id, s]));
   const entryById = new Map(entries.map((e) => [e.id, e]));
   const planById = new Map(plans.map((p) => [p.id, p]));
-  const curriculumById = new Map(curricula.map((c) => [c.id, c]));
   const schoolById = new Map(schools.map((s) => [s.id, s]));
   const gradeById = new Map(grades.map((g) => [g.id, g]));
 
@@ -533,18 +529,16 @@ export async function getAllReportCards(): Promise<
     const student = studentById.get(card.student_id);
     const entry = entryById.get(card.syllabus_entry_id);
     const plan = entry ? planById.get(entry.lesson_plan_id) : undefined;
-    const curriculum = plan ? curriculumById.get(plan.curriculum_id) : undefined;
 
     return {
       card,
       student_name: student?.name ?? "Unknown student",
       plan_title: plan?.title ?? "Unknown lesson plan",
       entry_id: card.syllabus_entry_id,
+      grade_id: student?.grade_id ?? "",
       school_id: entry?.school_id ?? "",
       school: entry ? (schoolById.get(entry.school_id)?.name ?? "") : "",
-      grade: curriculum
-        ? (gradeById.get(curriculum.grade_id)?.name ?? "")
-        : "",
+      grade: student ? (gradeById.get(student.grade_id)?.name ?? "") : "",
     };
   });
 }

@@ -46,27 +46,36 @@ export type CoachAssignment = {
   created_at: string;
 };
 
-/** A curriculum targets one grade of one school and owns its lesson plans. */
+/**
+ * A curriculum is just the pairing of one lesson plan with one grade — the
+ * same lesson plan can pair with several grades, each with its own objectives.
+ */
 export type Curriculum = {
   id: string;
-  name: string;
+  lesson_plan_id: string;
   grade_id: string;
   created_at: string;
 };
 
-/** Reusable admin-authored content. Scheduling lives on syllabus_entries. */
+/**
+ * A reusable, grade-agnostic catalog entry. Which grades it applies to, and
+ * what its objectives are per grade, lives on curricula/assessment_objectives.
+ * Scheduling lives on syllabus_entries.
+ */
 export type LessonPlan = {
   id: string;
-  curriculum_id: string;
   title: string;
-  sort_order: number;
   created_at: string;
 };
 
-/** Shown read-only on the report card so the coach knows the goal. */
+/**
+ * Tied to a (lesson_plan, grade) pairing — the same lesson plan can carry
+ * different objectives per grade. Shown read-only on the report card so the
+ * coach knows the goal.
+ */
 export type AssessmentObjective = {
   id: string;
-  lesson_plan_id: string;
+  curriculum_id: string;
   title: string;
   description: string | null;
   sort_order: number;

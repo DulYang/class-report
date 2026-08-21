@@ -106,7 +106,7 @@ export default async function WeeklyPage({
                 {entry.sessions.map((session) => (
                   <li key={session.entry.id}>
                     <Link
-                      href={`/reports/${session.entry.id}`}
+                      href={`/reports/${session.entry.id}/${session.grade?.id ?? ""}`}
                       className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-neutral-50"
                     >
                       <div>

@@ -121,7 +121,7 @@ export default async function ReportsPage({
                   </td>
                   <td className="px-3 py-2">
                     <Link
-                      href={`/reports/${row.entry_id}`}
+                      href={`/reports/${row.entry_id}/${row.grade_id}`}
                       className="text-xs font-medium text-neutral-600 underline hover:text-neutral-900"
                     >
                       Open

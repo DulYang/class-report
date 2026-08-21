@@ -2,11 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import SyllabusEntryForm from "@/components/forms/SyllabusEntryForm";
 import SyllabusEntryRow from "@/components/SyllabusEntryRow";
-import {
-  getLessonPlanOptions,
-  getSchool,
-  getSyllabus,
-} from "@/lib/data/queries";
+import { getLessonPlans, getSchool, getSyllabus } from "@/lib/data/queries";
 import { toDateInput, weekRange } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -20,12 +16,12 @@ export default async function AdminSchoolSyllabus({
 
   let school;
   let entries;
-  let options;
+  let lessonPlans;
   try {
-    [school, entries, options] = await Promise.all([
+    [school, entries, lessonPlans] = await Promise.all([
       getSchool(schoolId),
       getSyllabus(schoolId),
-      getLessonPlanOptions(),
+      getLessonPlans(),
     ]);
   } catch (err) {
     return (
@@ -42,9 +38,6 @@ export default async function AdminSchoolSyllabus({
   }
 
   if (!school) notFound();
-
-  // Only plans whose curriculum targets a grade at THIS school can be taught here.
-  const relevant = options.filter((o) => o.school?.id === school.id);
 
   const today = new Date();
   const week = weekRange(today);
@@ -71,6 +64,10 @@ export default async function AdminSchoolSyllabus({
       <section className="rounded-lg border border-neutral-200 bg-white">
         <div className="border-b border-neutral-200 px-4 py-3">
           <h2 className="font-semibold">Scheduled lesson plans</h2>
+          <p className="text-xs text-neutral-500">
+            Every grade at this school studies the scheduled lesson plan on
+            these dates.
+          </p>
         </div>
 
         {entries.length === 0 ? (
@@ -80,13 +77,12 @@ export default async function AdminSchoolSyllabus({
           </p>
         ) : (
           <ul className="divide-y divide-neutral-100">
-            {entries.map(({ entry, plan, grade }) => (
+            {entries.map(({ entry, plan }) => (
               <SyllabusEntryRow
                 key={entry.id}
                 entry={entry}
                 plan={plan}
-                grade={grade}
-                options={relevant}
+                lessonPlans={lessonPlans}
               />
             ))}
           </ul>
@@ -94,18 +90,18 @@ export default async function AdminSchoolSyllabus({
 
         <div className="border-t border-neutral-200 bg-neutral-50 p-4">
           <h3 className="mb-3 text-sm font-semibold">Schedule a lesson plan</h3>
-          {relevant.length === 0 ? (
+          {lessonPlans.length === 0 ? (
             <p className="text-sm text-neutral-600">
-              No lesson plans exist for this school&apos;s grades yet. Build a{" "}
+              No lesson plans exist yet — create one on the{" "}
               <Link href="/admin/curriculum" className="font-medium underline">
-                curriculum
+                Curriculum
               </Link>{" "}
-              for one of them first.
+              page first.
             </p>
           ) : (
             <SyllabusEntryForm
               schoolId={school.id}
-              options={relevant}
+              lessonPlans={lessonPlans}
               defaultDates={{ first: week.from, second: toDateInput(second) }}
             />
           )}

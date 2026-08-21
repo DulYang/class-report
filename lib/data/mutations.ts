@@ -151,53 +151,25 @@ export async function unassignCoachFromGrade(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-// ── curricula + lesson plans + objectives (admin) ──────────────────────────
+// ── lesson plans (admin): a plain reusable catalog ──────────────────────────
 
-export async function createCurriculum(input: {
-  name: string;
-  grade_id: string;
-}): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase.from("curricula").insert(input);
-  if (error) throw new Error(error.message);
-}
-
-export async function updateCurriculum(
-  id: string,
-  input: { name: string; grade_id: string },
-): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase.from("curricula").update(input).eq("id", id);
-  if (error) throw new Error(error.message);
-}
-
-export async function deleteCurriculum(id: string): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase.from("curricula").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-}
-
-export async function createLessonPlan(input: {
-  curriculum_id: string;
-  title: string;
-  sort_order: number;
-}): Promise<LessonPlan> {
+export async function createLessonPlan(title: string): Promise<LessonPlan> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("lesson_plans")
-    .insert(input)
+    .insert({ title })
     .select()
     .single();
   if (error) throw new Error(error.message);
   return data as LessonPlan;
 }
 
-export async function updateLessonPlan(
-  id: string,
-  input: { title: string; sort_order: number },
-): Promise<void> {
+export async function updateLessonPlan(id: string, title: string): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase.from("lesson_plans").update(input).eq("id", id);
+  const { error } = await supabase
+    .from("lesson_plans")
+    .update({ title })
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 
@@ -207,8 +179,27 @@ export async function deleteLessonPlan(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export async function createObjective(input: {
+// ── curriculum: pairing a lesson plan with a grade ─────────────────────────
+
+export async function pairLessonPlanWithGrade(input: {
   lesson_plan_id: string;
+  grade_id: string;
+}): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("curricula").insert(input);
+  if (error) throw new Error(error.message);
+}
+
+export async function unpairLessonPlanFromGrade(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("curricula").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ── assessment objectives: tied to a (lesson_plan, grade) pairing ─────────
+
+export async function createObjective(input: {
+  curriculum_id: string;
   title: string;
   description: string | null;
   sort_order: number;

@@ -1,9 +1,17 @@
 # Class Report — Data Model
 
-Migrations `0002`–`0006` built the admin domain and then removed classes
-entirely. A student belongs to a **school and a grade**; a coach is assigned to
-a (school, grade) pair and inherits every session scheduled for it. There is no
-class and no class name.
+Migrations `0002`–`0007` built the admin domain, removed classes, and then
+reshaped curriculum. A student belongs to a **school and a grade**; a coach is
+assigned to a (school, grade) pair and inherits every session scheduled for it.
+There is no class.
+
+**Curriculum is a lesson plan paired with a grade — nothing else.** A
+`lesson_plan` is a plain, reusable, grade-agnostic title. `curricula` is the
+join of one `lesson_plan` with one `grade`; the same lesson plan can pair with
+several grades, each with its own `assessment_objectives`. A syllabus entry
+schedules a lesson plan at a school on given dates — with **no grade** — so
+every grade at that school studies it that day. A report card is therefore
+keyed by (syllabus entry, grade), not just the entry.
 
 ## Admin-owned
 
@@ -27,41 +35,39 @@ class and no class name.
 **Unique**: (school_id, name). Grades belong to a school, so "Grade 5" at two
 schools is two rows.
 
-### curricula
-| field | type |
-|---|---|
-| id | uuid pk |
-| name | text not null |
-| grade_id | uuid not null → grades.id |
-| created_at | timestamptz default now() |
-
-**Unique**: (name, grade_id). A curriculum targets exactly one grade — and
-therefore one school, since grades are per school.
-
 ### lesson_plans
 | field | type |
 |---|---|
 | id | uuid pk |
-| curriculum_id | uuid not null → curricula.id |
 | title | text not null |
-| sort_order | integer not null default 0 |
 | created_at | timestamptz default now() |
 
-Reusable content only. A lesson plan carries no dates; the syllabus schedules it.
+A plain, reusable catalog entry — no grade, no dates, no owner.
+
+### curricula
+| field | type |
+|---|---|
+| id | uuid pk |
+| lesson_plan_id | uuid not null → lesson_plans.id |
+| grade_id | uuid not null → grades.id |
+| created_at | timestamptz default now() |
+
+**Unique**: (lesson_plan_id, grade_id). This pairing *is* the curriculum — no
+separate name. The same lesson plan can pair with several grades.
 
 ### assessment_objectives
 | field | type |
 |---|---|
 | id | uuid pk |
-| lesson_plan_id | uuid not null → lesson_plans.id |
+| curriculum_id | uuid not null → curricula.id |
 | title | text not null |
 | description | text |
 | sort_order | integer not null default 0 |
 | created_at | timestamptz default now() |
 
-The grade is implied by the plan's curriculum, so an objective is scoped to a
-lesson plan *for a specific grade* without a second FK. Coaches see these
-read-only on the report card as the goal for the class.
+Tied to the (lesson_plan, grade) pairing, so the same lesson plan carries
+different objectives per grade. Coaches see these read-only on the report card
+as the goal for that grade.
 
 ### coach_assignments
 | field | type |
@@ -87,7 +93,8 @@ session then shows under each of them.
 | session_date2 | date (nullable — a session may be single) |
 | created_at | timestamptz default now() |
 
-**Unique**: (school_id, lesson_plan_id, session_date1).
+**Unique**: (school_id, lesson_plan_id, session_date1). No grade column —
+scheduling a lesson plan means every grade at that school studies it that day.
 
 ## Coach-facing
 
@@ -133,16 +140,19 @@ defaulting to 1; the database rejects anything outside that range.
 
 ## Relationships
 ```
-schools 1—* grades 1—* curricula 1—* lesson_plans 1—* assessment_objectives
-schools 1—* syllabus_entries *—1 lesson_plans
+lesson_plans *—* grades via curricula ;  curricula 1—* assessment_objectives
+schools 1—* syllabus_entries *—1 lesson_plans (no grade — applies to all)
 schools 1—* students *—1 grades
 coaches *—* (school, grade) via coach_assignments
-syllabus_entries 1—* report_cards *—1 students
+syllabus_entries × grades 1—* report_cards *—1 students
 ```
 
-**Who is on a report card**: a syllabus entry names a school, and its lesson
-plan sits in a curriculum for one grade. The card covers every student at that
-school in that grade.
+**Who is on a report card**: a syllabus entry names a school and a lesson plan
+only. The report card route is `/reports/[entryId]/[gradeId]` — one card set
+per (entry, grade) — and covers every student at that school in that grade.
+Objectives for that card come from the curriculum pairing of (the entry's
+lesson plan, that grade), if one exists; if the plan has never been paired with
+that grade, the objectives panel is simply empty.
 
 **Whose weekly view it appears in**: any coach with a `coach_assignments` row
 for that (school, grade). Sessions with no assigned coach are still listed,
@@ -153,7 +163,9 @@ under "No coach assigned", so they are never hidden.
 - **Write**: `report_cards` is open — that is the coach's job and they do not
   sign in. `schools`, `grades`, `curricula`, `lesson_plans`,
   `assessment_objectives`, `syllabus_entries`, `coaches`, `coach_assignments`
-  and `students` all require `private.is_admin()`.
+  and `students` all require `private.is_admin()`. RLS is defined per table, so
+  reshaping curriculum's columns in 0007 needed no policy changes — verified
+  live: anon `INSERT` into `lesson_plans` and `curricula` still returns 42501.
 - **Bootstrap**: `coaches` also allows an insert while
   `private.admin_bootstrap_open()` is true — i.e. until the first admin links an
   auth account. It closes permanently after that.

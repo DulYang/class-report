@@ -1,16 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { adminGuard } from "@/lib/auth";
 import {
-  createCurriculum,
   createLessonPlan,
   createObjective,
-  deleteCurriculum,
   deleteLessonPlan,
   deleteObjective,
-  updateCurriculum,
+  pairLessonPlanWithGrade,
+  unpairLessonPlanFromGrade,
   updateLessonPlan,
   updateObjective,
 } from "@/lib/data/mutations";
@@ -26,73 +24,16 @@ function intField(formData: FormData, name: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function refresh(curriculumId?: string) {
+function refresh(lessonPlanId?: string) {
   revalidatePath("/admin/curriculum");
   revalidatePath("/admin/syllabus");
   revalidatePath("/weekly");
   revalidatePath("/reports");
-  if (curriculumId) revalidatePath(`/admin/curriculum/${curriculumId}`);
+  if (lessonPlanId) revalidatePath(`/admin/curriculum/${lessonPlanId}`);
 }
 
 function fail(err: unknown, fallback: string): ActionResult {
   return { ok: false, error: err instanceof Error ? err.message : fallback };
-}
-
-// ── curricula ──────────────────────────────────────────────────────────────
-
-export async function createCurriculumAction(
-  _prev: ActionResult | null,
-  formData: FormData,
-): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
-
-  const name = field(formData, "name");
-  const gradeId = field(formData, "grade_id");
-  if (!name) return { ok: false, error: "Curriculum name is required." };
-  if (!gradeId) return { ok: false, error: "Pick the grade this curriculum is for." };
-
-  try {
-    await createCurriculum({ name, grade_id: gradeId });
-  } catch (err) {
-    return fail(err, "Could not create the curriculum.");
-  }
-
-  refresh();
-  return { ok: true };
-}
-
-export async function updateCurriculumAction(
-  _prev: ActionResult | null,
-  formData: FormData,
-): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
-
-  const id = field(formData, "id");
-  const name = field(formData, "name");
-  const gradeId = field(formData, "grade_id");
-  if (!id) return { ok: false, error: "Missing curriculum id." };
-  if (!name) return { ok: false, error: "Curriculum name is required." };
-  if (!gradeId) return { ok: false, error: "Pick the grade this curriculum is for." };
-
-  try {
-    await updateCurriculum(id, { name, grade_id: gradeId });
-  } catch (err) {
-    return fail(err, "Could not update the curriculum.");
-  }
-
-  refresh(id);
-  return { ok: true };
-}
-
-export async function deleteCurriculumAction(formData: FormData): Promise<void> {
-  if (await adminGuard()) return;
-  const id = field(formData, "id");
-  if (!id) return;
-  await deleteCurriculum(id);
-  refresh();
-  redirect("/admin/curriculum");
 }
 
 // ── lesson plans ───────────────────────────────────────────────────────────
@@ -104,22 +45,16 @@ export async function createLessonPlanAction(
   const denied = await adminGuard();
   if (denied) return { ok: false, error: denied };
 
-  const curriculumId = field(formData, "curriculum_id");
   const title = field(formData, "title");
-  if (!curriculumId) return { ok: false, error: "Missing curriculum." };
   if (!title) return { ok: false, error: "Lesson plan title is required." };
 
   try {
-    await createLessonPlan({
-      curriculum_id: curriculumId,
-      title,
-      sort_order: intField(formData, "sort_order"),
-    });
+    await createLessonPlan(title);
   } catch (err) {
-    return fail(err, "Could not add the lesson plan.");
+    return fail(err, "Could not create the lesson plan.");
   }
 
-  refresh(curriculumId);
+  refresh();
   return { ok: true };
 }
 
@@ -136,22 +71,62 @@ export async function updateLessonPlanAction(
   if (!title) return { ok: false, error: "Lesson plan title is required." };
 
   try {
-    await updateLessonPlan(id, { title, sort_order: intField(formData, "sort_order") });
+    await updateLessonPlan(id, title);
   } catch (err) {
     return fail(err, "Could not update the lesson plan.");
   }
 
-  refresh(field(formData, "curriculum_id"));
+  refresh(id);
   return { ok: true };
 }
 
-/** Cascades to the plan's objectives and every syllabus entry using it. */
+/** Cascades to every grade pairing, its objectives, and syllabus use. */
 export async function deleteLessonPlanAction(formData: FormData): Promise<void> {
   if (await adminGuard()) return;
   const id = field(formData, "id");
   if (!id) return;
   await deleteLessonPlan(id);
-  refresh(field(formData, "curriculum_id"));
+  refresh();
+}
+
+// ── curriculum: pairing a lesson plan with a grade ─────────────────────────
+
+export async function pairGradeAction(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const denied = await adminGuard();
+  if (denied) return { ok: false, error: denied };
+
+  const lessonPlanId = field(formData, "lesson_plan_id");
+  const gradeId = field(formData, "grade_id");
+  if (!lessonPlanId) return { ok: false, error: "Missing lesson plan." };
+  if (!gradeId) return { ok: false, error: "Pick a grade." };
+
+  try {
+    await pairLessonPlanWithGrade({
+      lesson_plan_id: lessonPlanId,
+      grade_id: gradeId,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message.includes("duplicate key")) {
+      return { ok: false, error: "This lesson plan is already paired with that grade." };
+    }
+    return fail(err, "Could not pair the grade.");
+  }
+
+  refresh(lessonPlanId);
+  return { ok: true };
+}
+
+/** Cascades to that grade's objectives for this plan. */
+export async function unpairGradeAction(formData: FormData): Promise<void> {
+  if (await adminGuard()) return;
+  const id = field(formData, "id");
+  if (!id) return;
+  await unpairLessonPlanFromGrade(id);
+  refresh(field(formData, "lesson_plan_id"));
 }
 
 // ── assessment objectives ──────────────────────────────────────────────────
@@ -163,14 +138,14 @@ export async function createObjectiveAction(
   const denied = await adminGuard();
   if (denied) return { ok: false, error: denied };
 
-  const lessonPlanId = field(formData, "lesson_plan_id");
+  const curriculumId = field(formData, "curriculum_id");
   const title = field(formData, "title");
-  if (!lessonPlanId) return { ok: false, error: "Missing lesson plan." };
+  if (!curriculumId) return { ok: false, error: "Missing grade pairing." };
   if (!title) return { ok: false, error: "Objective is required." };
 
   try {
     await createObjective({
-      lesson_plan_id: lessonPlanId,
+      curriculum_id: curriculumId,
       title,
       description: field(formData, "description") || null,
       sort_order: intField(formData, "sort_order"),
@@ -179,7 +154,7 @@ export async function createObjectiveAction(
     return fail(err, "Could not add the objective.");
   }
 
-  refresh(field(formData, "curriculum_id"));
+  refresh(field(formData, "lesson_plan_id"));
   return { ok: true };
 }
 
@@ -204,7 +179,7 @@ export async function updateObjectiveAction(
     return fail(err, "Could not update the objective.");
   }
 
-  refresh(field(formData, "curriculum_id"));
+  refresh(field(formData, "lesson_plan_id"));
   return { ok: true };
 }
 
@@ -213,5 +188,5 @@ export async function deleteObjectiveAction(formData: FormData): Promise<void> {
   const id = field(formData, "id");
   if (!id) return;
   await deleteObjective(id);
-  refresh(field(formData, "curriculum_id"));
+  refresh(field(formData, "lesson_plan_id"));
 }

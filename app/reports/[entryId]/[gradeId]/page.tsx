@@ -10,13 +10,13 @@ export const dynamic = "force-dynamic";
 export default async function ReportCardPage({
   params,
 }: {
-  params: Promise<{ entryId: string }>;
+  params: Promise<{ entryId: string; gradeId: string }>;
 }) {
-  const { entryId } = await params;
+  const { entryId, gradeId } = await params;
 
   let result;
   try {
-    result = await getReportCardRows(entryId);
+    result = await getReportCardRows(entryId, gradeId);
   } catch (err) {
     return (
       <ErrorState message={err instanceof Error ? err.message : "Unknown error"} />

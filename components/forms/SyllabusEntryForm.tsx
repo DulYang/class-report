@@ -5,17 +5,20 @@ import {
   createSyllabusEntryAction,
   updateSyllabusEntryAction,
 } from "@/lib/actions/syllabus";
-import type { LessonPlanOption } from "@/lib/data/queries";
-import type { SyllabusEntry } from "@/lib/types";
+import type { LessonPlan, SyllabusEntry } from "@/lib/types";
 
+/**
+ * Scheduling a lesson plan at a school covers every grade there — the form has
+ * no grade picker, only school (fixed by the page), dates and a lesson plan.
+ */
 export default function SyllabusEntryForm({
   schoolId,
-  options,
+  lessonPlans,
   initial,
   defaultDates,
 }: {
   schoolId: string;
-  options: LessonPlanOption[];
+  lessonPlans: LessonPlan[];
   initial?: SyllabusEntry;
   defaultDates?: { first: string; second: string };
 }) {
@@ -43,10 +46,9 @@ export default function SyllabusEntryForm({
               <option value="" disabled>
                 Choose a lesson plan…
               </option>
-              {options.map(({ plan, curriculum, grade }) => (
+              {lessonPlans.map((plan) => (
                 <option key={plan.id} value={plan.id}>
-                  {plan.title} — {curriculum.name}
-                  {grade ? ` (${grade.name})` : ""}
+                  {plan.title}
                 </option>
               ))}
             </select>
@@ -74,6 +76,12 @@ export default function SyllabusEntryForm({
           />
         </Field>
       </div>
+
+      {lessonPlans.length === 0 && (
+        <p className="text-sm text-amber-700">
+          No lesson plans exist yet — create one on the Curriculum page first.
+        </p>
+      )}
     </ActionForm>
   );
 }
