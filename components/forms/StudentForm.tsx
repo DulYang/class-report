@@ -6,24 +6,29 @@ import {
   createStudentAction,
   updateStudentAction,
 } from "@/lib/actions/students";
-import type { Grade, School, Student } from "@/lib/types";
+import type { Grade, School, SchoolGrade, Student } from "@/lib/types";
 
 /**
- * A student belongs to a school and a grade — there is no class. Grades belong
- * to a school, so the second picker follows the first.
+ * A student belongs to a school and a grade — there is no class. The grade
+ * picker offers only the grades that school is set up to offer.
  */
 export default function StudentForm({
   schools,
   grades,
+  schoolGrades,
   initial,
 }: {
   schools: School[];
   grades: Grade[];
+  schoolGrades: SchoolGrade[];
   initial?: Student;
 }) {
   const editing = Boolean(initial);
   const [schoolId, setSchoolId] = useState(initial?.school_id ?? "");
-  const gradeOptions = grades.filter((g) => g.school_id === schoolId);
+  const offeredGradeIds = new Set(
+    schoolGrades.filter((sg) => sg.school_id === schoolId).map((sg) => sg.grade_id),
+  );
+  const gradeOptions = grades.filter((g) => offeredGradeIds.has(g.id));
 
   return (
     <ActionForm

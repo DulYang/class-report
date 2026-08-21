@@ -14,6 +14,7 @@ import {
   type ReportCardRow,
   type ScheduledSession,
   type School,
+  type SchoolGrade,
   type Student,
   type SyllabusEntry,
 } from "@/lib/types";
@@ -72,6 +73,11 @@ export function getCoachAssignments(): Promise<CoachAssignment[]> {
   return all<CoachAssignment>("coach_assignments");
 }
 
+/** Which grades each school runs — admin-managed, independent of enrollment. */
+export function getSchoolGrades(): Promise<SchoolGrade[]> {
+  return all<SchoolGrade>("school_grades");
+}
+
 /** The (lesson_plan, grade) pairings — this is the whole of "curriculum". */
 export function getCurricula(): Promise<Curriculum[]> {
   return all<Curriculum>("curricula");
@@ -109,48 +115,30 @@ export async function getObjectives(
   return (data ?? []) as AssessmentObjective[];
 }
 
-/** Grades decorated with the school they belong to, for pickers. */
-export async function getGradesWithSchool(): Promise<
-  { grade: Grade; school: School | null }[]
-> {
-  const [grades, schools] = await Promise.all([getGrades(), getSchools()]);
-  const schoolById = new Map(schools.map((s) => [s.id, s]));
-  return grades.map((grade) => ({
-    grade,
-    school: schoolById.get(grade.school_id) ?? null,
-  }));
-}
-
 // ── admin: curriculum (lesson plan × grade × objectives) ──────────────────
 
 export type LessonPlanWithGrades = {
   plan: LessonPlan;
-  grades: { curriculum: Curriculum; grade: Grade | null; school: School | null }[];
+  grades: { curriculum: Curriculum; grade: Grade | null }[];
 };
 
 /** Every lesson plan with the grades it's paired to, for the index list. */
 export async function getLessonPlansWithGrades(): Promise<LessonPlanWithGrades[]> {
-  const [plans, curricula, grades, schools] = await Promise.all([
+  const [plans, curricula, grades] = await Promise.all([
     getLessonPlans(),
     getCurricula(),
     getGrades(),
-    getSchools(),
   ]);
   const gradeById = new Map(grades.map((g) => [g.id, g]));
-  const schoolById = new Map(schools.map((s) => [s.id, s]));
 
   return plans.map((plan) => ({
     plan,
     grades: curricula
       .filter((c) => c.lesson_plan_id === plan.id)
-      .map((curriculum) => {
-        const grade = gradeById.get(curriculum.grade_id) ?? null;
-        return {
-          curriculum,
-          grade,
-          school: grade ? (schoolById.get(grade.school_id) ?? null) : null,
-        };
-      }),
+      .map((curriculum) => ({
+        curriculum,
+        grade: gradeById.get(curriculum.grade_id) ?? null,
+      })),
   }));
 }
 
@@ -160,7 +148,6 @@ export async function getLessonPlanDetail(id: string): Promise<{
   pairings: {
     curriculum: Curriculum;
     grade: Grade | null;
-    school: School | null;
     objectives: AssessmentObjective[];
   }[];
 } | null> {
@@ -168,16 +155,14 @@ export async function getLessonPlanDetail(id: string): Promise<{
   if (!plan) return null;
 
   const supabase = await createClient();
-  const [curriculaRes, grades, schools] = await Promise.all([
+  const [curriculaRes, grades] = await Promise.all([
     supabase.from("curricula").select("*").eq("lesson_plan_id", id),
     getGrades(),
-    getSchools(),
   ]);
   if (curriculaRes.error) throw new Error(curriculaRes.error.message);
 
   const curricula = (curriculaRes.data ?? []) as Curriculum[];
   const gradeById = new Map(grades.map((g) => [g.id, g]));
-  const schoolById = new Map(schools.map((s) => [s.id, s]));
 
   let objectives: AssessmentObjective[] = [];
   if (curricula.length > 0) {
@@ -195,15 +180,11 @@ export async function getLessonPlanDetail(id: string): Promise<{
 
   return {
     plan,
-    pairings: curricula.map((curriculum) => {
-      const grade = gradeById.get(curriculum.grade_id) ?? null;
-      return {
-        curriculum,
-        grade,
-        school: grade ? (schoolById.get(grade.school_id) ?? null) : null,
-        objectives: objectives.filter((o) => o.curriculum_id === curriculum.id),
-      };
-    }),
+    pairings: curricula.map((curriculum) => ({
+      curriculum,
+      grade: gradeById.get(curriculum.grade_id) ?? null,
+      objectives: objectives.filter((o) => o.curriculum_id === curriculum.id),
+    })),
   };
 }
 
@@ -264,7 +245,7 @@ export async function getWeeklySchedule(range?: {
 }): Promise<CoachSchedule[]> {
   const supabase = await createClient();
 
-  const [coaches, schools, grades, plans, assignments, students] =
+  const [coaches, schools, grades, plans, assignments, students, schoolGrades] =
     await Promise.all([
       getCoaches(),
       getSchools(),
@@ -272,6 +253,7 @@ export async function getWeeklySchedule(range?: {
       getLessonPlans(),
       getCoachAssignments(),
       getStudents(),
+      getSchoolGrades(),
     ]);
 
   let entriesQuery = supabase.from("syllabus_entries").select("*");
@@ -307,10 +289,12 @@ export async function getWeeklySchedule(range?: {
   const studentGradeById = new Map(students.map((s) => [s.id, s.grade_id]));
 
   const gradesBySchool = new Map<string, Grade[]>();
-  for (const g of grades) {
-    const arr = gradesBySchool.get(g.school_id) ?? [];
-    arr.push(g);
-    gradesBySchool.set(g.school_id, arr);
+  for (const sg of schoolGrades) {
+    const grade = gradeById.get(sg.grade_id);
+    if (!grade) continue;
+    const arr = gradesBySchool.get(sg.school_id) ?? [];
+    arr.push(grade);
+    gradesBySchool.set(sg.school_id, arr);
   }
 
   const rosterSize = new Map<string, number>();

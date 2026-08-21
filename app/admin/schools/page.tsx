@@ -1,14 +1,17 @@
 import Link from "next/link";
 import SchoolForm from "@/components/forms/SchoolForm";
-import { getGrades, getSchools } from "@/lib/data/queries";
+import { getSchoolGrades, getSchools } from "@/lib/data/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSchoolsPage() {
   let schools;
-  let grades;
+  let schoolGrades;
   try {
-    [schools, grades] = await Promise.all([getSchools(), getGrades()]);
+    [schools, schoolGrades] = await Promise.all([
+      getSchools(),
+      getSchoolGrades(),
+    ]);
   } catch (err) {
     return (
       <div
@@ -24,8 +27,8 @@ export default async function AdminSchoolsPage() {
   }
 
   const gradeCount = new Map<string, number>();
-  for (const g of grades) {
-    gradeCount.set(g.school_id, (gradeCount.get(g.school_id) ?? 0) + 1);
+  for (const sg of schoolGrades) {
+    gradeCount.set(sg.school_id, (gradeCount.get(sg.school_id) ?? 0) + 1);
   }
 
   return (
@@ -37,7 +40,7 @@ export default async function AdminSchoolsPage() {
         <h1 className="text-2xl font-bold tracking-tight">Schools & Grades</h1>
         <p className="text-sm text-neutral-600">
           {schools.length} school{schools.length === 1 ? "" : "s"}. Open one to
-          edit its person in charge and manage its grades.
+          edit its person in charge and pick which grades it offers.
         </p>
       </header>
 

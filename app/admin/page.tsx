@@ -16,7 +16,12 @@ const CARDS = [
     href: "/admin/schools",
     label: "Schools & Grades",
     blurb:
-      "School details, person in charge, the grades it runs, and which coach owns each grade.",
+      "School details, person in charge, which grades it offers, and which coach owns each grade.",
+  },
+  {
+    href: "/admin/grades",
+    label: "Grades",
+    blurb: "The shared grade catalog — add, rename, or remove a grade.",
   },
   {
     href: "/admin/coaches",

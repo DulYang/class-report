@@ -5,7 +5,7 @@ import DeleteButton from "@/components/DeleteButton";
 import LessonPlanForm from "@/components/forms/LessonPlanForm";
 import PairGradeForm from "@/components/forms/PairGradeForm";
 import { deleteLessonPlanAction } from "@/lib/actions/curriculum";
-import { getGradesWithSchool, getLessonPlanDetail } from "@/lib/data/queries";
+import { getGrades, getLessonPlanDetail } from "@/lib/data/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +21,7 @@ export default async function AdminLessonPlanDetail({
   try {
     [detail, gradeOptions] = await Promise.all([
       getLessonPlanDetail(lessonPlanId),
-      getGradesWithSchool(),
+      getGrades(),
     ]);
   } catch (err) {
     return (
@@ -41,9 +41,7 @@ export default async function AdminLessonPlanDetail({
   const { plan, pairings } = detail;
 
   const pairedGradeIds = new Set(pairings.map((p) => p.grade?.id));
-  const availableGrades = gradeOptions.filter(
-    (g) => !pairedGradeIds.has(g.grade.id),
-  );
+  const availableGrades = gradeOptions.filter((g) => !pairedGradeIds.has(g.id));
 
   return (
     <div className="space-y-8">
@@ -88,13 +86,12 @@ export default async function AdminLessonPlanDetail({
           </p>
         ) : (
           <ul className="divide-y divide-neutral-100">
-            {pairings.map(({ curriculum, grade, school, objectives }) => (
+            {pairings.map(({ curriculum, grade, objectives }) => (
               <CurriculumGradeRow
                 key={curriculum.id}
                 lessonPlanId={plan.id}
                 curriculum={curriculum}
                 grade={grade}
-                school={school}
                 objectives={objectives}
               />
             ))}

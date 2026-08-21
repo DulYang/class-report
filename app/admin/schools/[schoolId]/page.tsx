@@ -2,16 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import DeleteButton from "@/components/DeleteButton";
 import CoachAssignmentForm from "@/components/forms/CoachAssignmentForm";
-import GradeForm from "@/components/forms/GradeForm";
+import OfferGradeForm from "@/components/forms/OfferGradeForm";
 import SchoolForm from "@/components/forms/SchoolForm";
-import GradeRow from "@/components/GradeRow";
 import { unassignCoachAction } from "@/lib/actions/coach-assignments";
-import { deleteSchoolAction } from "@/lib/actions/schools";
+import { deleteSchoolAction, removeSchoolGradeAction } from "@/lib/actions/schools";
 import {
   getCoachAssignments,
   getCoaches,
   getGrades,
   getSchool,
+  getSchoolGrades,
 } from "@/lib/data/queries";
 
 export const dynamic = "force-dynamic";
@@ -25,15 +25,18 @@ export default async function AdminSchoolDetail({
 
   let school;
   let grades;
+  let schoolGradeRows;
   let coaches;
   let assignmentRows;
   try {
-    [school, grades, coaches, assignmentRows] = await Promise.all([
-      getSchool(schoolId),
-      getGrades(),
-      getCoaches(),
-      getCoachAssignments(),
-    ]);
+    [school, grades, schoolGradeRows, coaches, assignmentRows] =
+      await Promise.all([
+        getSchool(schoolId),
+        getGrades(),
+        getSchoolGrades(),
+        getCoaches(),
+        getCoachAssignments(),
+      ]);
   } catch (err) {
     return (
       <div
@@ -49,10 +52,20 @@ export default async function AdminSchoolDetail({
   }
 
   if (!school) notFound();
-  const schoolGrades = grades.filter((g) => g.school_id === school.id);
+
+  const gradeById = new Map(grades.map((g) => [g.id, g]));
+  const offeredHere = schoolGradeRows
+    .filter((sg) => sg.school_id === school.id)
+    .flatMap((sg) => {
+      const grade = gradeById.get(sg.grade_id);
+      return grade ? [{ schoolGrade: sg, grade }] : [];
+    })
+    .sort((a, b) => a.grade.name.localeCompare(b.grade.name));
+  const offeredGradeIds = new Set(offeredHere.map((o) => o.grade.id));
+  const availableGrades = grades.filter((g) => !offeredGradeIds.has(g.id));
+  const schoolGrades = offeredHere.map((o) => o.grade);
 
   const coachById = new Map(coaches.map((c) => [c.id, c]));
-  const gradeById = new Map(grades.map((g) => [g.id, g]));
   const assigned = assignmentRows
     .filter((a) => a.school_id === school.id)
     .flatMap((a) => {
@@ -90,7 +103,7 @@ export default async function AdminSchoolDetail({
             action={deleteSchoolAction}
             hidden={{ id: school.id }}
             label="Delete this school"
-            confirmMessage={`Delete "${school.name}"? Its grades, curricula, syllabus and every report card underneath will be deleted.`}
+            confirmMessage={`Delete "${school.name}"? Its syllabus, students, coach assignments and every report card underneath will be deleted. Its grades are not affected — they belong to the global catalog.`}
           />
         </div>
       </section>
@@ -98,29 +111,48 @@ export default async function AdminSchoolDetail({
       <section className="rounded-lg border border-neutral-200 bg-white">
         <div className="border-b border-neutral-200 px-4 py-3">
           <h2 className="font-semibold">
-            Grades{" "}
+            Grades offered here{" "}
             <span className="text-sm font-normal text-neutral-500">
-              ({schoolGrades.length})
+              ({offeredHere.length})
             </span>
           </h2>
+          <p className="text-xs text-neutral-500">
+            Grades are a shared catalog across every school — pick which ones
+            this school runs. Manage the catalog itself on the{" "}
+            <Link href="/admin/grades" className="font-medium underline">
+              Grades
+            </Link>{" "}
+            page.
+          </p>
         </div>
 
-        {schoolGrades.length === 0 ? (
+        {offeredHere.length === 0 ? (
           <p className="px-4 py-4 text-sm text-neutral-500">
-            No grades yet. Add the grades this school runs so curricula can
-            target them.
+            No grades offered yet. Offer the grades this school runs so
+            curricula and students can target them.
           </p>
         ) : (
           <ul className="divide-y divide-neutral-100">
-            {schoolGrades.map((grade) => (
-              <GradeRow key={grade.id} grade={grade} />
+            {offeredHere.map(({ schoolGrade, grade }) => (
+              <li
+                key={schoolGrade.id}
+                className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5"
+              >
+                <span className="font-medium">{grade.name}</span>
+                <DeleteButton
+                  action={removeSchoolGradeAction}
+                  hidden={{ id: schoolGrade.id, school_id: school.id }}
+                  label="Remove"
+                  confirmMessage={`Stop offering ${grade.name} at ${school.name}? Existing coach assignments and students in that grade here are not removed, but new ones won't be able to pick it.`}
+                />
+              </li>
             ))}
           </ul>
         )}
 
         <div className="border-t border-neutral-200 bg-neutral-50 p-4">
-          <h3 className="mb-3 text-sm font-semibold">Add a grade</h3>
-          <GradeForm schoolId={school.id} />
+          <h3 className="mb-3 text-sm font-semibold">Offer a grade</h3>
+          <OfferGradeForm schoolId={school.id} gradeOptions={availableGrades} />
         </div>
       </section>
 

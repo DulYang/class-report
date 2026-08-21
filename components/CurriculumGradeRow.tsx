@@ -4,13 +4,12 @@ import { useState } from "react";
 import DeleteButton from "@/components/DeleteButton";
 import ObjectiveForm from "@/components/forms/ObjectiveForm";
 import { unpairGradeAction, deleteObjectiveAction } from "@/lib/actions/curriculum";
-import type { AssessmentObjective, Curriculum, Grade, School } from "@/lib/types";
+import type { AssessmentObjective, Curriculum, Grade } from "@/lib/types";
 
 type Props = {
   lessonPlanId: string;
   curriculum: Curriculum;
   grade: Grade | null;
-  school: School | null;
   objectives: AssessmentObjective[];
 };
 
@@ -19,7 +18,6 @@ export default function CurriculumGradeRow({
   lessonPlanId,
   curriculum,
   grade,
-  school,
   objectives,
 }: Props) {
   const [editingObjective, setEditingObjective] = useState<string | null>(null);
@@ -31,10 +29,7 @@ export default function CurriculumGradeRow({
     <li className="px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-medium">
-            {school ? `${school.name} — ` : ""}
-            {grade?.name ?? "Unknown grade"}
-          </p>
+          <p className="font-medium">{grade?.name ?? "Unknown grade"}</p>
           <p className="text-xs text-neutral-500">
             {objectives.length} assessment objective
             {objectives.length === 1 ? "" : "s"}

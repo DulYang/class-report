@@ -3,7 +3,7 @@
 import ActionForm, { Field, inputClass } from "@/components/forms/ActionForm";
 import { createGradeAction } from "@/lib/actions/schools";
 
-export default function GradeForm({ schoolId }: { schoolId: string }) {
+export default function GradeForm() {
   return (
     <ActionForm
       action={createGradeAction}
@@ -11,7 +11,6 @@ export default function GradeForm({ schoolId }: { schoolId: string }) {
       successMessage="Grade added."
       resetOnSuccess
     >
-      <input type="hidden" name="school_id" value={schoolId} />
       <Field label="Grade name">
         <input
           name="name"

@@ -17,7 +17,6 @@ export default function GradeRow({ grade }: { grade: Grade }) {
     startTransition(async () => {
       const formData = new FormData();
       formData.set("id", grade.id);
-      formData.set("school_id", grade.school_id);
       formData.set("name", name);
       const result = await updateGradeAction(null, formData);
       if (!result.ok) {
@@ -90,9 +89,9 @@ export default function GradeRow({ grade }: { grade: Grade }) {
         )}
         <DeleteButton
           action={deleteGradeAction}
-          hidden={{ id: grade.id, school_id: grade.school_id }}
+          hidden={{ id: grade.id }}
           label="Remove"
-          confirmMessage={`Remove ${grade.name}? Its curricula, lesson plans and any classes using it will be affected.`}
+          confirmMessage={`Remove ${grade.name}? It will be removed from every school offering it, and its curriculum pairings, students, and coach assignments will be deleted too.`}
         />
       </div>
     </li>

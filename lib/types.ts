@@ -32,8 +32,15 @@ export type School = {
 
 export type Grade = {
   id: string;
-  school_id: string;
   name: string;
+  created_at: string;
+};
+
+/** Which grades a school runs — admin-managed, independent of enrollment. */
+export type SchoolGrade = {
+  id: string;
+  school_id: string;
+  grade_id: string;
   created_at: string;
 };
 

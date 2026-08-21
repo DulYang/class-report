@@ -1,9 +1,10 @@
 # Class Report — Data Model
 
 Migrations `0002`–`0007` built the admin domain, removed classes, and then
-reshaped curriculum. A student belongs to a **school and a grade**; a coach is
-assigned to a (school, grade) pair and inherits every session scheduled for it.
-There is no class.
+reshaped curriculum. Migration `0009` then disassociated grades from schools.
+A student belongs to a **school and a grade**; a coach is assigned to a
+(school, grade) pair and inherits every session scheduled for it. There is no
+class.
 
 **Curriculum is a lesson plan paired with a grade — nothing else.** A
 `lesson_plan` is a plain, reusable, grade-agnostic title. `curricula` is the
@@ -28,12 +29,26 @@ keyed by (syllabus entry, grade), not just the entry.
 | field | type |
 |---|---|
 | id | uuid pk |
-| school_id | uuid not null → schools.id |
 | name | text not null |
 | created_at | timestamptz default now() |
 
-**Unique**: (school_id, name). Grades belong to a school, so "Grade 5" at two
-schools is two rows.
+**Unique**: (name). A global catalog — "Grade 5" is one row, shared by every
+school. A grade has no relationship to a school on its own; see
+`school_grades` for which schools actually run it.
+
+### school_grades
+| field | type |
+|---|---|
+| id | uuid pk |
+| school_id | uuid not null → schools.id |
+| grade_id | uuid not null → grades.id |
+| created_at | timestamptz default now() |
+
+**Unique**: (school_id, grade_id). Admin-managed: which grades a school
+offers, independent of enrollment — a grade can be offered (and a coach
+pre-assigned to it) before any student exists there. This is what
+`syllabus_entries` fans out over to produce one report-card session per grade
+per school, and what the students/coach-assignment pickers filter to.
 
 ### lesson_plans
 | field | type |
@@ -94,7 +109,8 @@ session then shows under each of them.
 | created_at | timestamptz default now() |
 
 **Unique**: (school_id, lesson_plan_id, session_date1). No grade column —
-scheduling a lesson plan means every grade at that school studies it that day.
+scheduling a lesson plan means every grade that school *offers* (via
+`school_grades`) studies it that day.
 
 ## Coach-facing
 
@@ -141,7 +157,8 @@ defaulting to 1; the database rejects anything outside that range.
 ## Relationships
 ```
 lesson_plans *—* grades via curricula ;  curricula 1—* assessment_objectives
-schools 1—* syllabus_entries *—1 lesson_plans (no grade — applies to all)
+schools *—* grades via school_grades (which grades a school offers)
+schools 1—* syllabus_entries *—1 lesson_plans (no grade — fans out over school_grades)
 schools 1—* students *—1 grades
 coaches *—* (school, grade) via coach_assignments
 syllabus_entries × grades 1—* report_cards *—1 students
@@ -161,7 +178,7 @@ under "No coach assigned", so they are never hidden.
 ## RLS
 - **Read**: open on every table — the coach app has no login.
 - **Write**: `report_cards` is open — that is the coach's job and they do not
-  sign in. `schools`, `grades`, `curricula`, `lesson_plans`,
+  sign in. `schools`, `grades`, `school_grades`, `curricula`, `lesson_plans`,
   `assessment_objectives`, `syllabus_entries`, `coaches`, `coach_assignments`
   and `students` all require `private.is_admin()`. RLS is defined per table, so
   reshaping curriculum's columns in 0007 needed no policy changes — verified

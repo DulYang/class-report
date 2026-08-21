@@ -70,10 +70,7 @@ export async function deleteSchool(id: string): Promise<void> {
 
 // ── grades (admin) ─────────────────────────────────────────────────────────
 
-export async function createGrade(input: {
-  school_id: string;
-  name: string;
-}): Promise<void> {
+export async function createGrade(input: { name: string }): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.from("grades").insert(input);
   if (error) throw new Error(error.message);
@@ -153,6 +150,23 @@ export async function assignCoachToGrade(input: {
 export async function unassignCoachFromGrade(id: string): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.from("coach_assignments").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ── school ↔ grade offering (admin) ─────────────────────────────────────────
+
+export async function addSchoolGrade(input: {
+  school_id: string;
+  grade_id: string;
+}): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("school_grades").insert(input);
+  if (error) throw new Error(error.message);
+}
+
+export async function removeSchoolGrade(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("school_grades").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 

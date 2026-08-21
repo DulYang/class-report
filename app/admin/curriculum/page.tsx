@@ -63,10 +63,7 @@ export default async function AdminCurriculumPage() {
                   {grades.length === 0
                     ? "Not paired with any grade yet"
                     : grades
-                        .map(
-                          (g) =>
-                            `${g.school?.name ?? "Unknown school"} · ${g.grade?.name ?? "Unknown grade"}`,
-                        )
+                        .map((g) => g.grade?.name ?? "Unknown grade")
                         .join(", ")}
                 </p>
               </div>

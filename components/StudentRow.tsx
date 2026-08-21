@@ -4,17 +4,19 @@ import { useState } from "react";
 import DeleteButton from "@/components/DeleteButton";
 import StudentForm from "@/components/forms/StudentForm";
 import { deleteStudentAction } from "@/lib/actions/students";
-import type { Grade, School, Student } from "@/lib/types";
+import type { Grade, School, SchoolGrade, Student } from "@/lib/types";
 
 /** One roster row: edit name/school/grade in place, or remove the student. */
 export default function StudentRow({
   student,
   schools,
   grades,
+  schoolGrades,
 }: {
   student: Student;
   schools: School[];
   grades: Grade[];
+  schoolGrades: SchoolGrade[];
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -41,7 +43,12 @@ export default function StudentRow({
 
       {editing && (
         <div className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3">
-          <StudentForm schools={schools} grades={grades} initial={student} />
+          <StudentForm
+            schools={schools}
+            grades={grades}
+            schoolGrades={schoolGrades}
+            initial={student}
+          />
         </div>
       )}
     </li>

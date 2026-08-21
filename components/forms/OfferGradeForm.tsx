@@ -2,43 +2,43 @@
 
 import Link from "next/link";
 import ActionForm, { Field, inputClass } from "@/components/forms/ActionForm";
-import { pairGradeAction } from "@/lib/actions/curriculum";
+import { addSchoolGradeAction } from "@/lib/actions/schools";
 import type { Grade } from "@/lib/types";
 
-/** Pairs this lesson plan with a grade so it can carry grade-specific objectives. */
-export default function PairGradeForm({
-  lessonPlanId,
+/** Offers an existing (global) grade at this school. */
+export default function OfferGradeForm({
+  schoolId,
   gradeOptions,
 }: {
-  lessonPlanId: string;
+  schoolId: string;
   gradeOptions: Grade[];
 }) {
   if (gradeOptions.length === 0) {
     return (
       <p className="text-sm text-neutral-600">
-        No grades exist yet — add one on the{" "}
+        Every grade is already offered here — add a new one on the{" "}
         <Link href="/admin/grades" className="font-medium underline">
           Grades
         </Link>{" "}
-        page first.
+        page.
       </p>
     );
   }
 
   return (
     <ActionForm
-      action={pairGradeAction}
-      submitLabel="Pair with grade"
-      successMessage="Paired."
+      action={addSchoolGradeAction}
+      submitLabel="Offer grade"
+      successMessage="Grade offered."
       resetOnSuccess
     >
-      <input type="hidden" name="lesson_plan_id" value={lessonPlanId} />
+      <input type="hidden" name="school_id" value={schoolId} />
       <Field label="Grade">
         <select
           name="grade_id"
           required
           defaultValue=""
-          className={`${inputClass} max-w-sm`}
+          className={`${inputClass} max-w-xs`}
         >
           <option value="" disabled>
             Choose a grade…

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import StudentForm from "@/components/forms/StudentForm";
 import StudentRow from "@/components/StudentRow";
-import { getGrades, getRoster, getSchools } from "@/lib/data/queries";
+import { getGrades, getRoster, getSchoolGrades, getSchools } from "@/lib/data/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -9,11 +9,13 @@ export default async function AdminStudentsPage() {
   let roster;
   let schools;
   let grades;
+  let schoolGrades;
   try {
-    [roster, schools, grades] = await Promise.all([
+    [roster, schools, grades, schoolGrades] = await Promise.all([
       getRoster(),
       getSchools(),
       getGrades(),
+      getSchoolGrades(),
     ]);
   } catch (err) {
     return (
@@ -30,10 +32,15 @@ export default async function AdminStudentsPage() {
   }
 
   // Grouped by school, then grade — the same shape a report card covers.
+  const gradeById = new Map(grades.map((g) => [g.id, g]));
   const groups = schools.map((school) => ({
     school,
-    gradeGroups: grades
-      .filter((g) => g.school_id === school.id)
+    gradeGroups: schoolGrades
+      .filter((sg) => sg.school_id === school.id)
+      .flatMap((sg) => {
+        const grade = gradeById.get(sg.grade_id);
+        return grade ? [grade] : [];
+      })
       .map((grade) => ({
         grade,
         students: roster.filter(
@@ -69,7 +76,7 @@ export default async function AdminStudentsPage() {
             .
           </p>
         ) : (
-          <StudentForm schools={schools} grades={grades} />
+          <StudentForm schools={schools} grades={grades} schoolGrades={schoolGrades} />
         )}
       </section>
 
@@ -105,6 +112,7 @@ export default async function AdminStudentsPage() {
                           student={student}
                           schools={schools}
                           grades={grades}
+                          schoolGrades={schoolGrades}
                         />
                       ))}
                     </ul>
