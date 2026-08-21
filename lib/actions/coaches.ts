@@ -1,9 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { adminGuard } from "@/lib/auth";
+import { adminActor, logAudit } from "@/lib/audit";
+import { getCurrentAdmin } from "@/lib/auth";
 import { createCoach, deleteCoach, updateCoach } from "@/lib/data/mutations";
 import type { ActionResult } from "@/lib/types";
+
+const DENIED = "Sign in as an admin to make this change.";
 
 function field(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -12,7 +15,6 @@ function field(formData: FormData, name: string): string {
 
 function refresh() {
   revalidatePath("/admin/coaches");
-  revalidatePath("/classes");
   revalidatePath("/weekly");
   revalidatePath("/reports");
 }
@@ -29,8 +31,8 @@ export async function createCoachAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
+  const admin = await getCurrentAdmin();
+  if (!admin) return { ok: false, error: DENIED };
 
   const parsed = readCoach(formData);
   if (!parsed.valid) return { ok: false, error: parsed.error };
@@ -44,6 +46,13 @@ export async function createCoachAction(
     };
   }
 
+  await logAudit({
+    actor: adminActor(admin),
+    action: "coach.create",
+    entityType: "coach",
+    summary: `Added coach "${parsed.input.name}" (${parsed.input.role})`,
+  });
+
   refresh();
   return { ok: true };
 }
@@ -52,8 +61,8 @@ export async function updateCoachAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
+  const admin = await getCurrentAdmin();
+  if (!admin) return { ok: false, error: DENIED };
 
   const id = field(formData, "id");
   if (!id) return { ok: false, error: "Missing coach id." };
@@ -70,14 +79,33 @@ export async function updateCoachAction(
     };
   }
 
+  await logAudit({
+    actor: adminActor(admin),
+    action: "coach.update",
+    entityType: "coach",
+    entityId: id,
+    summary: `Updated coach "${parsed.input.name}" (${parsed.input.role})`,
+  });
+
   refresh();
   return { ok: true };
 }
 
 export async function deleteCoachAction(formData: FormData): Promise<void> {
-  if (await adminGuard()) return;
+  const admin = await getCurrentAdmin();
+  if (!admin) return;
+
   const id = field(formData, "id");
   if (!id) return;
+
   await deleteCoach(id);
+  await logAudit({
+    actor: adminActor(admin),
+    action: "coach.delete",
+    entityType: "coach",
+    entityId: id,
+    summary: "Deleted a coach",
+  });
+
   refresh();
 }

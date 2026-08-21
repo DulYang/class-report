@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Attendance, LessonPlan, Score, Student } from "@/lib/types";
+import type { Attendance, Coach, LessonPlan, Score, Student } from "@/lib/types";
 
 /** Every DB write lives here. Server actions validate, then call into this. */
 
@@ -122,15 +122,20 @@ export async function claimAdminAccount(input: {
   name: string;
   email: string;
   user_id: string;
-}): Promise<void> {
+}): Promise<Coach> {
   const supabase = await createClient();
-  const { error } = await supabase.from("coaches").insert({
-    name: input.name,
-    email: input.email,
-    role: "admin",
-    user_id: input.user_id,
-  });
+  const { data, error } = await supabase
+    .from("coaches")
+    .insert({
+      name: input.name,
+      email: input.email,
+      role: "admin",
+      user_id: input.user_id,
+    })
+    .select()
+    .single();
   if (error) throw new Error(error.message);
+  return data as Coach;
 }
 
 // ── coach ↔ (school, grade) assignment (admin) ─────────────────────────────

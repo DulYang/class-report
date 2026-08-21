@@ -1,12 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { adminGuard } from "@/lib/auth";
+import { adminActor, logAudit } from "@/lib/audit";
+import { getCurrentAdmin } from "@/lib/auth";
 import {
   assignCoachToGrade,
   unassignCoachFromGrade,
 } from "@/lib/data/mutations";
 import type { ActionResult } from "@/lib/types";
+
+const DENIED = "Sign in as an admin to make this change.";
 
 function field(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -28,8 +31,8 @@ export async function assignCoachAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
+  const admin = await getCurrentAdmin();
+  if (!admin) return { ok: false, error: DENIED };
 
   const coachId = field(formData, "coach_id");
   const schoolId = field(formData, "school_id");
@@ -52,14 +55,32 @@ export async function assignCoachAction(
     return { ok: false, error: message || "Could not assign the coach." };
   }
 
+  await logAudit({
+    actor: adminActor(admin),
+    action: "coach_assignment.create",
+    entityType: "coach_assignment",
+    summary: "Assigned a coach to a grade",
+  });
+
   refresh(schoolId);
   return { ok: true };
 }
 
 export async function unassignCoachAction(formData: FormData): Promise<void> {
-  if (await adminGuard()) return;
+  const admin = await getCurrentAdmin();
+  if (!admin) return;
+
   const id = field(formData, "id");
   if (!id) return;
+
   await unassignCoachFromGrade(id);
+  await logAudit({
+    actor: adminActor(admin),
+    action: "coach_assignment.delete",
+    entityType: "coach_assignment",
+    entityId: id,
+    summary: "Unassigned a coach from a grade",
+  });
+
   refresh(field(formData, "school_id"));
 }

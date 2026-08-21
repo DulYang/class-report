@@ -17,6 +17,7 @@ const ADMIN_SECTIONS = [
   { href: "/admin/students", label: "Students" },
   { href: "/admin/curriculum", label: "Curriculum" },
   { href: "/admin/syllabus", label: "Syllabus" },
+  { href: "/admin/audit", label: "Audit Log" },
 ];
 
 export default function NavShell({

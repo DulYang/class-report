@@ -48,13 +48,3 @@ export async function isBootstrapOpen(): Promise<boolean> {
   if (error) return false;
   return (count ?? 0) === 0;
 }
-
-/**
- * Guard for admin server actions. Returns an error string to hand back to the
- * form, or null when the caller is an admin. RLS blocks the write regardless;
- * this just turns a policy rejection into a readable message.
- */
-export async function adminGuard(): Promise<string | null> {
-  const admin = await getCurrentAdmin();
-  return admin ? null : "Sign in as an admin to make this change.";
-}

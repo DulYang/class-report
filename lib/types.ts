@@ -152,3 +152,16 @@ export function fillStatus(studentCount: number, filledCount: number): FillStatu
   if (filledCount >= studentCount) return "complete";
   return "partial";
 }
+
+/** One row of the audit trail. Insert is open; only admins can read it. */
+export type AuditLogEntry = {
+  id: string;
+  actor_type: "admin" | "coach" | "system";
+  actor_id: string | null;
+  actor_name: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  summary: string;
+  created_at: string;
+};

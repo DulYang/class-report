@@ -38,6 +38,11 @@ const CARDS = [
     label: "Syllabus",
     blurb: "Schedule a school's lesson plans onto dates coaches will teach.",
   },
+  {
+    href: "/admin/audit",
+    label: "Audit Log",
+    blurb: "Every admin change and every report card save, newest first.",
+  },
 ];
 
 export default async function AdminHome() {

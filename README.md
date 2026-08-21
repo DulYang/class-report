@@ -6,15 +6,19 @@ duplicating paper report cards into spreadsheets.
 
 ## The core job
 
-1. **Weekly View** — this week's sessions, grouped by the coach who owns them,
-   each with a fill status badge (Empty / Partial / Complete).
-2. Click a session → the **report card grid** loads every student at that school
-   in that grade, pre-filled with anything already saved, with the lesson plan's
-   assessment objectives shown above it as the goal.
-3. Set P/A for each session, score assessment and right behaviour 1–4, add
-   notes, **Save**.
+1. **Weekly View** — pick your name from a dropdown (self-reported, not a
+   login), then pick a session from your own list of classes, shown as
+   clickable cards rather than a second dropdown.
+2. The **report card grid** loads every student at that school in that grade,
+   pre-filled with anything already saved, with the lesson plan's assessment
+   objectives shown above it as the goal. Column headers show the actual
+   session dates.
+3. Set P/A per session, score assessment and right behaviour 1–4, add notes,
+   **Save**.
 4. Come back later, change one student's row, save again — values persist.
 5. **Reports** shows every saved card read-only, filterable by school.
+6. **Audit Log** (admin-only) records every admin change and every report
+   card save — who, what, and when.
 
 Coaches do not sign in; the weekly view and grid are open. Admins sign in at
 `/login` and own everything else.

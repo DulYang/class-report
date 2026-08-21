@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { logAudit } from "@/lib/audit";
 import { isBootstrapOpen } from "@/lib/auth";
 import { claimAdminAccount } from "@/lib/data/mutations";
 import { createClient } from "@/lib/supabase/server";
@@ -25,6 +26,13 @@ export async function signInAction(
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { ok: false, error: error.message };
+
+  await logAudit({
+    actor: { type: "system", id: null, name: email },
+    action: "admin.sign_in",
+    entityType: "session",
+    summary: `${email} signed in`,
+  });
 
   revalidatePath("/", "layout");
   redirect("/admin");
@@ -64,8 +72,10 @@ export async function bootstrapAdminAction(
     return { ok: false, error: "Sign-up did not return a user. Try again." };
   }
 
+  let adminCoachId: string | null = null;
   try {
-    await claimAdminAccount({ name, email, user_id: userId });
+    const created = await claimAdminAccount({ name, email, user_id: userId });
+    adminCoachId = created.id;
   } catch (err) {
     return {
       ok: false,
@@ -85,6 +95,14 @@ export async function bootstrapAdminAction(
         "Admin account created, but this project requires email confirmation. Confirm the address, then sign in.",
     };
   }
+
+  await logAudit({
+    actor: { type: "admin", id: adminCoachId ?? userId, name },
+    action: "admin.bootstrap",
+    entityType: "coach",
+    entityId: adminCoachId,
+    summary: `${name} created the first admin account`,
+  });
 
   revalidatePath("/", "layout");
   redirect("/admin");

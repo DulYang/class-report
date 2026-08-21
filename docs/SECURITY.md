@@ -54,7 +54,15 @@ evaluated as the querying role. Supabase's security advisor reports no findings.
   else is admin-only. Locking this down means giving coaches logins and scoping
   `report_cards` to the coach assigned to that session's (school, grade), with
   admins seeing everything.
-- **No audit log** on report card edits.
+- **Audit log is in place** (`audit_log`, migration 0008) — every admin
+  mutation and every report card save is recorded with actor, action, entity
+  and a summary. Insert is open (coaches don't sign in, so their saves are
+  anonymous writes like report_cards itself); read is admin-only, verified
+  live: anon `SELECT` returns `[]`, anon `INSERT` returns 201. The coach name
+  attached to a report-card save is self-reported from a dropdown on the
+  weekly view, not a verified identity — an admin editing the same page is
+  attributed automatically instead, and is always preferred when both are
+  possible.
 - **Adding an admin login** for someone else needs a `SUPABASE_SERVICE_ROLE_KEY`
   on the server; marking a coach as "admin" today records the role but creates
   no account.

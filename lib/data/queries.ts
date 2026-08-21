@@ -3,6 +3,7 @@ import {
   fillStatus,
   toScore,
   type AssessmentObjective,
+  type AuditLogEntry,
   type Coach,
   type CoachAssignment,
   type CoachSchedule,
@@ -541,4 +542,16 @@ export async function getAllReportCards(): Promise<
       grade: student ? (gradeById.get(student.grade_id)?.name ?? "") : "",
     };
   });
+}
+
+/** Admin-only: the audit trail, newest first. */
+export async function getAuditLog(limit = 300): Promise<AuditLogEntry[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("audit_log")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as AuditLogEntry[];
 }

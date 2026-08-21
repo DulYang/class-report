@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { adminGuard } from "@/lib/auth";
+import { adminActor, logAudit } from "@/lib/audit";
+import { getCurrentAdmin } from "@/lib/auth";
 import {
   createSyllabusEntry,
   deleteSyllabusEntry,
@@ -10,6 +11,7 @@ import {
 import type { ActionResult } from "@/lib/types";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const DENIED = "Sign in as an admin to make this change.";
 
 function field(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -59,8 +61,8 @@ export async function createSyllabusEntryAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
+  const admin = await getCurrentAdmin();
+  if (!admin) return { ok: false, error: DENIED };
 
   const schoolId = field(formData, "school_id");
   if (!schoolId) return { ok: false, error: "Missing school." };
@@ -78,6 +80,13 @@ export async function createSyllabusEntryAction(
     };
   }
 
+  await logAudit({
+    actor: adminActor(admin),
+    action: "syllabus_entry.create",
+    entityType: "syllabus_entry",
+    summary: `Scheduled a lesson plan starting ${parsed.input.session_date1}`,
+  });
+
   refresh(schoolId);
   return { ok: true };
 }
@@ -86,8 +95,8 @@ export async function updateSyllabusEntryAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
+  const admin = await getCurrentAdmin();
+  if (!admin) return { ok: false, error: DENIED };
 
   const id = field(formData, "id");
   if (!id) return { ok: false, error: "Missing syllabus entry id." };
@@ -107,6 +116,14 @@ export async function updateSyllabusEntryAction(
     };
   }
 
+  await logAudit({
+    actor: adminActor(admin),
+    action: "syllabus_entry.update",
+    entityType: "syllabus_entry",
+    entityId: id,
+    summary: `Updated a scheduled session (now starting ${parsed.input.session_date1})`,
+  });
+
   refresh(field(formData, "school_id"));
   return { ok: true };
 }
@@ -115,9 +132,20 @@ export async function updateSyllabusEntryAction(
 export async function deleteSyllabusEntryAction(
   formData: FormData,
 ): Promise<void> {
-  if (await adminGuard()) return;
+  const admin = await getCurrentAdmin();
+  if (!admin) return;
+
   const id = field(formData, "id");
   if (!id) return;
+
   await deleteSyllabusEntry(id);
+  await logAudit({
+    actor: adminActor(admin),
+    action: "syllabus_entry.delete",
+    entityType: "syllabus_entry",
+    entityId: id,
+    summary: "Deleted a scheduled session",
+  });
+
   refresh(field(formData, "school_id"));
 }

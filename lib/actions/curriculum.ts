@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { adminGuard } from "@/lib/auth";
+import { adminActor, logAudit } from "@/lib/audit";
+import { getCurrentAdmin } from "@/lib/auth";
 import {
   createLessonPlan,
   createObjective,
@@ -13,6 +14,8 @@ import {
   updateObjective,
 } from "@/lib/data/mutations";
 import type { ActionResult } from "@/lib/types";
+
+const DENIED = "Sign in as an admin to make this change.";
 
 function field(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -42,8 +45,8 @@ export async function createLessonPlanAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
+  const admin = await getCurrentAdmin();
+  if (!admin) return { ok: false, error: DENIED };
 
   const title = field(formData, "title");
   if (!title) return { ok: false, error: "Lesson plan title is required." };
@@ -54,6 +57,13 @@ export async function createLessonPlanAction(
     return fail(err, "Could not create the lesson plan.");
   }
 
+  await logAudit({
+    actor: adminActor(admin),
+    action: "lesson_plan.create",
+    entityType: "lesson_plan",
+    summary: `Created lesson plan "${title}"`,
+  });
+
   refresh();
   return { ok: true };
 }
@@ -62,8 +72,8 @@ export async function updateLessonPlanAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
+  const admin = await getCurrentAdmin();
+  if (!admin) return { ok: false, error: DENIED };
 
   const id = field(formData, "id");
   const title = field(formData, "title");
@@ -76,16 +86,35 @@ export async function updateLessonPlanAction(
     return fail(err, "Could not update the lesson plan.");
   }
 
+  await logAudit({
+    actor: adminActor(admin),
+    action: "lesson_plan.update",
+    entityType: "lesson_plan",
+    entityId: id,
+    summary: `Renamed lesson plan to "${title}"`,
+  });
+
   refresh(id);
   return { ok: true };
 }
 
 /** Cascades to every grade pairing, its objectives, and syllabus use. */
 export async function deleteLessonPlanAction(formData: FormData): Promise<void> {
-  if (await adminGuard()) return;
+  const admin = await getCurrentAdmin();
+  if (!admin) return;
+
   const id = field(formData, "id");
   if (!id) return;
+
   await deleteLessonPlan(id);
+  await logAudit({
+    actor: adminActor(admin),
+    action: "lesson_plan.delete",
+    entityType: "lesson_plan",
+    entityId: id,
+    summary: "Deleted a lesson plan",
+  });
+
   refresh();
 }
 
@@ -95,8 +124,8 @@ export async function pairGradeAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
+  const admin = await getCurrentAdmin();
+  if (!admin) return { ok: false, error: DENIED };
 
   const lessonPlanId = field(formData, "lesson_plan_id");
   const gradeId = field(formData, "grade_id");
@@ -116,16 +145,34 @@ export async function pairGradeAction(
     return fail(err, "Could not pair the grade.");
   }
 
+  await logAudit({
+    actor: adminActor(admin),
+    action: "curriculum.pair",
+    entityType: "curriculum",
+    summary: "Paired a lesson plan with a grade",
+  });
+
   refresh(lessonPlanId);
   return { ok: true };
 }
 
 /** Cascades to that grade's objectives for this plan. */
 export async function unpairGradeAction(formData: FormData): Promise<void> {
-  if (await adminGuard()) return;
+  const admin = await getCurrentAdmin();
+  if (!admin) return;
+
   const id = field(formData, "id");
   if (!id) return;
+
   await unpairLessonPlanFromGrade(id);
+  await logAudit({
+    actor: adminActor(admin),
+    action: "curriculum.unpair",
+    entityType: "curriculum",
+    entityId: id,
+    summary: "Unpaired a lesson plan from a grade",
+  });
+
   refresh(field(formData, "lesson_plan_id"));
 }
 
@@ -135,8 +182,8 @@ export async function createObjectiveAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
+  const admin = await getCurrentAdmin();
+  if (!admin) return { ok: false, error: DENIED };
 
   const curriculumId = field(formData, "curriculum_id");
   const title = field(formData, "title");
@@ -154,6 +201,13 @@ export async function createObjectiveAction(
     return fail(err, "Could not add the objective.");
   }
 
+  await logAudit({
+    actor: adminActor(admin),
+    action: "objective.create",
+    entityType: "assessment_objective",
+    summary: `Added objective "${title}"`,
+  });
+
   refresh(field(formData, "lesson_plan_id"));
   return { ok: true };
 }
@@ -162,8 +216,8 @@ export async function updateObjectiveAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
+  const admin = await getCurrentAdmin();
+  if (!admin) return { ok: false, error: DENIED };
 
   const id = field(formData, "id");
   const title = field(formData, "title");
@@ -179,14 +233,33 @@ export async function updateObjectiveAction(
     return fail(err, "Could not update the objective.");
   }
 
+  await logAudit({
+    actor: adminActor(admin),
+    action: "objective.update",
+    entityType: "assessment_objective",
+    entityId: id,
+    summary: `Updated objective "${title}"`,
+  });
+
   refresh(field(formData, "lesson_plan_id"));
   return { ok: true };
 }
 
 export async function deleteObjectiveAction(formData: FormData): Promise<void> {
-  if (await adminGuard()) return;
+  const admin = await getCurrentAdmin();
+  if (!admin) return;
+
   const id = field(formData, "id");
   if (!id) return;
+
   await deleteObjective(id);
+  await logAudit({
+    actor: adminActor(admin),
+    action: "objective.delete",
+    entityType: "assessment_objective",
+    entityId: id,
+    summary: "Deleted an objective",
+  });
+
   refresh(field(formData, "lesson_plan_id"));
 }

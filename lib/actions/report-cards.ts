@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { logAudit, reportCardActor } from "@/lib/audit";
 import { saveReportCards, type ReportCardInput } from "@/lib/data/mutations";
 import { toScore, type ActionResult, type Attendance } from "@/lib/types";
 
@@ -12,10 +13,16 @@ function toText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-/** Core engine write: persist the whole grid for one scheduled lesson. */
+/**
+ * Core engine write: persist the whole grid for one (syllabus entry, grade).
+ * The coach identity is self-reported from the weekly view's picker, not a
+ * verified login — see lib/audit.ts. An admin editing directly is attributed
+ * automatically instead.
+ */
 export async function saveReportCardGrid(
   syllabusEntryId: string,
   rows: ReportCardInput[],
+  coach?: { id: string | null; name: string | null },
 ): Promise<ActionResult> {
   if (!syllabusEntryId) return { ok: false, error: "Missing scheduled lesson." };
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -43,6 +50,15 @@ export async function saveReportCardGrid(
       error: err instanceof Error ? err.message : "Could not save report cards.",
     };
   }
+
+  const actor = await reportCardActor(coach?.id ?? null, coach?.name ?? null);
+  await logAudit({
+    actor,
+    action: "report_card.save",
+    entityType: "syllabus_entry",
+    entityId: syllabusEntryId,
+    summary: `Saved report cards for ${clean.length} student${clean.length === 1 ? "" : "s"}`,
+  });
 
   revalidatePath("/");
   revalidatePath("/weekly");

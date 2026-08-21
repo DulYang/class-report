@@ -1,13 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { adminGuard } from "@/lib/auth";
+import { adminActor, logAudit } from "@/lib/audit";
+import { getCurrentAdmin } from "@/lib/auth";
 import {
   createStudent,
   deleteStudent,
   updateStudent,
 } from "@/lib/data/mutations";
 import type { ActionResult } from "@/lib/types";
+
+const DENIED = "Sign in as an admin to make this change.";
 
 function field(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -43,8 +46,8 @@ export async function createStudentAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
+  const admin = await getCurrentAdmin();
+  if (!admin) return { ok: false, error: DENIED };
 
   const parsed = readStudent(formData);
   if (!parsed.valid) return { ok: false, error: parsed.error };
@@ -58,6 +61,13 @@ export async function createStudentAction(
     };
   }
 
+  await logAudit({
+    actor: adminActor(admin),
+    action: "student.create",
+    entityType: "student",
+    summary: `Added student "${parsed.input.name}"`,
+  });
+
   refresh();
   return { ok: true };
 }
@@ -66,8 +76,8 @@ export async function updateStudentAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const denied = await adminGuard();
-  if (denied) return { ok: false, error: denied };
+  const admin = await getCurrentAdmin();
+  if (!admin) return { ok: false, error: DENIED };
 
   const id = field(formData, "id");
   if (!id) return { ok: false, error: "Missing student id." };
@@ -84,15 +94,34 @@ export async function updateStudentAction(
     };
   }
 
+  await logAudit({
+    actor: adminActor(admin),
+    action: "student.update",
+    entityType: "student",
+    entityId: id,
+    summary: `Updated student "${parsed.input.name}"`,
+  });
+
   refresh();
   return { ok: true };
 }
 
 /** Removing a student cascades to their report cards for every session. */
 export async function deleteStudentAction(formData: FormData): Promise<void> {
-  if (await adminGuard()) return;
+  const admin = await getCurrentAdmin();
+  if (!admin) return;
+
   const id = field(formData, "id");
   if (!id) return;
+
   await deleteStudent(id);
+  await logAudit({
+    actor: adminActor(admin),
+    action: "student.delete",
+    entityType: "student",
+    entityId: id,
+    summary: "Deleted a student",
+  });
+
   refresh();
 }

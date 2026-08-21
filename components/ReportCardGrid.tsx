@@ -13,14 +13,19 @@ import {
 type Props = {
   syllabusEntryId: string;
   initialRows: ReportCardRow[];
-  /** Syllabus entries may schedule one session or two. */
-  hasSecondSession: boolean;
+  session1Date: string;
+  /** null when the entry only schedules one session. */
+  session2Date: string | null;
+  /** The coach who picked their name on the weekly view, for the audit log. */
+  coach: { id: string; name: string } | null;
 };
 
 export default function ReportCardGrid({
   syllabusEntryId,
   initialRows,
-  hasSecondSession,
+  session1Date,
+  session2Date,
+  coach,
 }: Props) {
   const [rows, setRows] = useState<ReportCardRow[]>(initialRows);
   const [baseline, setBaseline] = useState<ReportCardRow[]>(initialRows);
@@ -42,19 +47,6 @@ export default function ReportCardGrid({
     setSavedAt(null);
   }
 
-  function markAll(attendance: Attendance) {
-    setRows((prev) =>
-      prev.map((r) => ({
-        ...r,
-        attendance_session1: attendance,
-        attendance_session2: hasSecondSession
-          ? attendance
-          : r.attendance_session2,
-      })),
-    );
-    setSavedAt(null);
-  }
-
   function save() {
     setError(null);
     startTransition(async () => {
@@ -68,6 +60,7 @@ export default function ReportCardGrid({
           right_behavior: r.right_behavior,
           notes: r.notes,
         })),
+        coach ? { id: coach.id, name: coach.name } : undefined,
       );
 
       if (!result.ok) {
@@ -88,22 +81,6 @@ export default function ReportCardGrid({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <StatusPill filled={filledCount} total={rows.length} />
-        <div className="flex gap-2 text-sm">
-          <button
-            type="button"
-            onClick={() => markAll("P")}
-            className="rounded-md border border-neutral-300 px-2.5 py-1 font-medium text-neutral-700 hover:bg-neutral-50"
-          >
-            Mark all present
-          </button>
-          <button
-            type="button"
-            onClick={() => markAll("A")}
-            className="rounded-md border border-neutral-300 px-2.5 py-1 font-medium text-neutral-700 hover:bg-neutral-50"
-          >
-            Mark all absent
-          </button>
-        </div>
         <span className="text-xs text-neutral-500">
           Assessment and right behaviour are scored 1–4.
         </span>
@@ -123,9 +100,9 @@ export default function ReportCardGrid({
           <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
             <tr>
               <th className="px-3 py-2 font-semibold">Student</th>
-              <th className="px-3 py-2 font-semibold">Session 1</th>
-              {hasSecondSession && (
-                <th className="px-3 py-2 font-semibold">Session 2</th>
+              <th className="px-3 py-2 font-semibold">{session1Date}</th>
+              {session2Date && (
+                <th className="px-3 py-2 font-semibold">{session2Date}</th>
               )}
               <th className="px-3 py-2 font-semibold">Assessment</th>
               <th className="px-3 py-2 font-semibold">Right behaviour</th>
@@ -146,15 +123,15 @@ export default function ReportCardGrid({
                 <td className="px-3 py-2 align-top">
                   <AttendanceSelect
                     value={row.attendance_session1}
-                    label={`${row.student_name} session 1 attendance`}
+                    label={`${row.student_name} attendance for ${session1Date}`}
                     onChange={(v) => update(row.student_id, { attendance_session1: v })}
                   />
                 </td>
-                {hasSecondSession && (
+                {session2Date && (
                   <td className="px-3 py-2 align-top">
                     <AttendanceSelect
                       value={row.attendance_session2}
-                      label={`${row.student_name} session 2 attendance`}
+                      label={`${row.student_name} attendance for ${session2Date}`}
                       onChange={(v) =>
                         update(row.student_id, { attendance_session2: v })
                       }
