@@ -146,7 +146,7 @@ export default function ReportCardGrid({
 
             <div className="grid grid-cols-2 gap-3">
               <FieldBlock label={session1Date}>
-                <AttendanceButtons
+                <AttendanceToggle
                   value={row.attendance_session1}
                   label={`${row.student_name} attendance for ${session1Date}`}
                   onChange={(v) =>
@@ -157,7 +157,7 @@ export default function ReportCardGrid({
               </FieldBlock>
               {session2Date && (
                 <FieldBlock label={session2Date}>
-                  <AttendanceButtons
+                  <AttendanceToggle
                     value={row.attendance_session2}
                     label={`${row.student_name} attendance for ${session2Date}`}
                     onChange={(v) =>
@@ -213,7 +213,7 @@ export default function ReportCardGrid({
                   )}
                 </td>
                 <td className="px-3 py-2 align-top">
-                  <AttendanceButtons
+                  <AttendanceToggle
                     value={row.attendance_session1}
                     label={`${row.student_name} attendance for ${session1Date}`}
                     onChange={(v) => update(row.student_id, { attendance_session1: v })}
@@ -221,7 +221,7 @@ export default function ReportCardGrid({
                 </td>
                 {session2Date && (
                   <td className="px-3 py-2 align-top">
-                    <AttendanceButtons
+                    <AttendanceToggle
                       value={row.attendance_session2}
                       label={`${row.student_name} attendance for ${session2Date}`}
                       onChange={(v) =>
@@ -364,9 +364,13 @@ function Segmented<T extends string | number>({
   );
 }
 
-const ATTENDANCE_OPTIONS: readonly Attendance[] = ["P", "A"];
-
-function AttendanceButtons({
+/**
+ * A one-button toggle: tap flips P ↔ A, coloured red/green with the letter on
+ * it. A two-button segmented control made every attendance mark a two-target
+ * decision; this makes the common case (mark present, or flip to absent) a
+ * single tap on the one control.
+ */
+function AttendanceToggle({
   value,
   label,
   onChange,
@@ -377,19 +381,20 @@ function AttendanceButtons({
   onChange: (v: Attendance) => void;
   full?: boolean;
 }) {
+  const present = value === "P";
   return (
-    <Segmented
-      options={ATTENDANCE_OPTIONS}
-      value={value}
-      label={label}
-      onChange={onChange}
-      full={full}
-      toneFor={(option) =>
-        option === "A"
-          ? "bg-red-600 text-white"
-          : "bg-emerald-600 text-white"
-      }
-    />
+    <button
+      type="button"
+      role="switch"
+      aria-checked={present}
+      aria-label={label}
+      onClick={() => onChange(present ? "A" : "P")}
+      className={`min-h-11 rounded-md px-3 text-sm font-semibold text-white transition-colors md:min-h-0 md:py-1.5 ${
+        full ? "w-full" : "w-16"
+      } ${present ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"}`}
+    >
+      {value}
+    </button>
   );
 }
 
