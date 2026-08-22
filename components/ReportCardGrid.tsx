@@ -103,28 +103,6 @@ export default function ReportCardGrid({
         </div>
       )}
 
-      <div className="rounded-lg border border-neutral-200 bg-white p-3">
-        <FieldBlock label="Class notes">
-          <textarea
-            aria-label="Class notes"
-            value={notes}
-            placeholder="Notes for the whole class this session"
-            rows={3}
-            onChange={(e) => {
-              setNotes(e.target.value);
-              setSavedAt(null);
-            }}
-            className="w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-base focus:border-neutral-500 focus:outline-none"
-          />
-        </FieldBlock>
-        {session2Date && (
-          <p className="mt-1 text-xs text-neutral-500">
-            Shared for both {session1Date} and {session2Date} — edit it again
-            on the second class.
-          </p>
-        )}
-      </div>
-
       {/* Mobile: one card per student — a table this wide is unusable on a
           phone, and filling these in on a phone is the coach's whole job. */}
       <div className="space-y-3 md:hidden">
@@ -248,6 +226,28 @@ export default function ReportCardGrid({
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="rounded-lg border border-neutral-200 bg-white p-3">
+        <FieldBlock label="Class notes">
+          <textarea
+            aria-label="Class notes"
+            value={notes}
+            placeholder="Notes for the whole class this session"
+            rows={3}
+            onChange={(e) => {
+              setNotes(e.target.value);
+              setSavedAt(null);
+            }}
+            className="w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-base focus:border-neutral-500 focus:outline-none"
+          />
+        </FieldBlock>
+        {session2Date && (
+          <p className="mt-1 text-xs text-neutral-500">
+            Shared for both {session1Date} and {session2Date} — edit it again
+            on the second class.
+          </p>
+        )}
       </div>
 
       {/* Sticky on mobile so a coach part-way down a long roster can always
