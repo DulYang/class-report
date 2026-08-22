@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getAllReportCards, getSchools } from "@/lib/data/queries";
 import { formatDate, semesterRange } from "@/lib/format";
-import type { Score } from "@/lib/types";
+import type { Attendance, Score } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,72 @@ function isSort(value: string | undefined): value is Sort {
   return SORTS.some((s) => s.value === value);
 }
 
+const VIEWS = [
+  { value: "list", label: "List" },
+  { value: "class", label: "By class" },
+] as const;
+type View = (typeof VIEWS)[number]["value"];
+
+function isView(value: string | undefined): value is View {
+  return VIEWS.some((v) => v.value === value);
+}
+
 type Row = Awaited<ReturnType<typeof getAllReportCards>>[number];
+
+/** One scheduled class session, read-only — the shape a coach filled in. */
+type SessionGroup = {
+  key: string;
+  plan_title: string;
+  school: string;
+  grade: string;
+  session_date: string | null;
+  session_date2: string | null;
+  notes: string;
+  students: {
+    student_name: string;
+    attendance_session1: Attendance;
+    attendance_session2: Attendance;
+    assessment: Score;
+    right_behavior: Score;
+  }[];
+};
+
+/** Every student's card shares one (entry, grade) session — group them back into it. */
+function groupBySession(rows: Row[]): SessionGroup[] {
+  const groups = new Map<string, SessionGroup>();
+  for (const row of rows) {
+    const key = `${row.entry_id}:${row.grade_id}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        key,
+        plan_title: row.plan_title,
+        school: row.school,
+        grade: row.grade,
+        session_date: row.session_date,
+        session_date2: row.session_date2,
+        notes: row.notes,
+        students: [],
+      };
+      groups.set(key, group);
+    }
+    group.students.push({
+      student_name: row.student_name,
+      attendance_session1: row.card.attendance_session1,
+      attendance_session2: row.card.attendance_session2,
+      assessment: row.card.assessment,
+      right_behavior: row.card.right_behavior,
+    });
+  }
+  return [...groups.values()]
+    .map((g) => ({
+      ...g,
+      students: g.students.sort((a, b) =>
+        a.student_name.localeCompare(b.student_name),
+      ),
+    }))
+    .sort((a, b) => (b.session_date ?? "").localeCompare(a.session_date ?? ""));
+}
 
 function compareRows(a: Row, b: Row, sort: Sort): number {
   switch (sort) {
@@ -48,6 +113,7 @@ export default async function ReportsPage({
     from?: string;
     to?: string;
     sort?: string;
+    view?: string;
   }>;
 }) {
   const {
@@ -55,12 +121,14 @@ export default async function ReportsPage({
     from: fromParam,
     to: toParam,
     sort: sortParam,
+    view: viewParam,
   } = await searchParams;
 
   const defaultRange = semesterRange(new Date());
   const from = fromParam || defaultRange.from;
   const to = toParam || defaultRange.to;
   const sort: Sort = isSort(sortParam) ? sortParam : "date_desc";
+  const view: View = isView(viewParam) ? viewParam : "list";
 
   let cards;
   let schools;
@@ -90,16 +158,30 @@ export default async function ReportsPage({
     })
     .sort((a, b) => compareRows(a, b, sort));
 
-  // Every school-filter link keeps the current date range and sort.
+  // Every school-filter link keeps the current date range, sort, and view.
   function schoolHref(schoolId?: string) {
     const params = new URLSearchParams();
     if (schoolId) params.set("school", schoolId);
     if (fromParam) params.set("from", fromParam);
     if (toParam) params.set("to", toParam);
     if (sortParam) params.set("sort", sortParam);
+    if (viewParam) params.set("view", viewParam);
     const qs = params.toString();
     return qs ? `/reports?${qs}` : "/reports";
   }
+
+  function viewHref(v: View) {
+    const params = new URLSearchParams();
+    if (schoolFilter) params.set("school", schoolFilter);
+    if (fromParam) params.set("from", fromParam);
+    if (toParam) params.set("to", toParam);
+    if (sortParam) params.set("sort", sortParam);
+    if (v !== "list") params.set("view", v);
+    const qs = params.toString();
+    return qs ? `/reports?${qs}` : "/reports";
+  }
+
+  const sessions = view === "class" ? groupBySession(visible) : [];
 
   const isDefaultRange = !fromParam && !toParam;
 
@@ -114,30 +196,56 @@ export default async function ReportsPage({
         </p>
       </header>
 
-      <div className="flex flex-wrap gap-2 text-sm">
-        <Link
-          href={schoolHref()}
-          className={`flex min-h-11 items-center rounded-md border px-3 py-1.5 font-medium ${
-            selected
-              ? "border-neutral-300 bg-white hover:bg-neutral-50"
-              : "border-neutral-900 bg-neutral-900 text-white"
-          }`}
-        >
-          All schools
-        </Link>
-        {schools.map((s) => (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2 text-sm">
           <Link
-            key={s.id}
-            href={schoolHref(s.id)}
+            href={schoolHref()}
             className={`flex min-h-11 items-center rounded-md border px-3 py-1.5 font-medium ${
-              selected?.id === s.id
-                ? "border-neutral-900 bg-neutral-900 text-white"
-                : "border-neutral-300 bg-white hover:bg-neutral-50"
+              selected
+                ? "border-neutral-300 bg-white hover:bg-neutral-50"
+                : "border-neutral-900 bg-neutral-900 text-white"
             }`}
           >
-            {s.name}
+            All schools
           </Link>
-        ))}
+          {schools.map((s) => (
+            <Link
+              key={s.id}
+              href={schoolHref(s.id)}
+              className={`flex min-h-11 items-center rounded-md border px-3 py-1.5 font-medium ${
+                selected?.id === s.id
+                  ? "border-neutral-900 bg-neutral-900 text-white"
+                  : "border-neutral-300 bg-white hover:bg-neutral-50"
+              }`}
+            >
+              {s.name}
+            </Link>
+          ))}
+        </div>
+
+        <div
+          role="radiogroup"
+          aria-label="View"
+          className="inline-flex overflow-hidden rounded-md border border-neutral-300 text-sm"
+        >
+          {VIEWS.map((v, i) => (
+            <Link
+              key={v.value}
+              href={viewHref(v.value)}
+              role="radio"
+              aria-checked={view === v.value}
+              className={`flex min-h-11 items-center px-3 py-1.5 font-medium ${
+                i > 0 ? "border-l border-neutral-300" : ""
+              } ${
+                view === v.value
+                  ? "bg-neutral-900 text-white"
+                  : "bg-white text-neutral-700 hover:bg-neutral-50"
+              }`}
+            >
+              {v.label}
+            </Link>
+          ))}
+        </div>
       </div>
 
       <form
@@ -145,6 +253,7 @@ export default async function ReportsPage({
         className="grid gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-sm sm:flex sm:flex-wrap sm:items-end"
       >
         {schoolFilter && <input type="hidden" name="school" value={schoolFilter} />}
+        {viewParam && <input type="hidden" name="view" value={viewParam} />}
 
         <label className="space-y-1">
           <span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
@@ -170,22 +279,24 @@ export default async function ReportsPage({
           />
         </label>
 
-        <label className="space-y-1">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            Sort by
-          </span>
-          <select
-            name="sort"
-            defaultValue={sort}
-            className="min-h-11 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-base sm:w-auto sm:text-sm"
-          >
-            {SORTS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {view === "list" && (
+          <label className="space-y-1">
+            <span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              Sort by
+            </span>
+            <select
+              name="sort"
+              defaultValue={sort}
+              className="min-h-11 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-base sm:w-auto sm:text-sm"
+            >
+              {SORTS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <button
           type="submit"
@@ -212,6 +323,12 @@ export default async function ReportsPage({
           </Link>
           .
         </p>
+      ) : view === "class" ? (
+        <div className="space-y-4">
+          {sessions.map((session) => (
+            <SessionCard key={session.key} session={session} />
+          ))}
+        </div>
       ) : (
         <>
         {/* Mobile: one card per report card — 9 columns can't be read on a phone. */}
@@ -257,17 +374,12 @@ export default async function ReportsPage({
                   </dd>
                 </div>
               </dl>
-              {row.notes && (
-                <p className="border-t border-neutral-100 pt-2 text-neutral-700">
-                  {row.notes}
-                </p>
-              )}
             </div>
           ))}
         </div>
 
         <div className="hidden overflow-x-auto rounded-lg border border-neutral-200 bg-white md:block">
-          <table className="w-full min-w-[860px] border-collapse text-sm">
+          <table className="w-full min-w-[760px] border-collapse text-sm">
             <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
               <tr>
                 <th className="px-3 py-2 font-semibold">Date</th>
@@ -278,7 +390,6 @@ export default async function ReportsPage({
                 <th className="px-3 py-2 font-semibold">S2</th>
                 <th className="px-3 py-2 font-semibold">Assessment</th>
                 <th className="px-3 py-2 font-semibold">Right behaviour</th>
-                <th className="px-3 py-2 font-semibold">Notes</th>
               </tr>
             </thead>
             <tbody>
@@ -304,9 +415,6 @@ export default async function ReportsPage({
                   </td>
                   <td className="px-3 py-2">
                     <ScorePill value={row.card.right_behavior} />
-                  </td>
-                  <td className="px-3 py-2 text-neutral-700">
-                    {row.notes || "—"}
                   </td>
                 </tr>
               ))}
@@ -344,6 +452,111 @@ function ScorePill({ value }: { value: Score }) {
   return (
     <span
       className={`inline-block w-6 rounded text-center text-xs font-semibold ${SCORE_TONE[value] ?? SCORE_TONE[1]}`}
+    >
+      {value}
+    </span>
+  );
+}
+
+/**
+ * Read-only version of one scheduled class — same shape a coach fills in,
+ * without the editable buttons or the save bar. One shared note per session,
+ * not per student.
+ */
+function SessionCard({ session }: { session: SessionGroup }) {
+  const hasSession2 = Boolean(session.session_date2);
+  return (
+    <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+      <div className="border-b border-neutral-200 px-4 py-3">
+        <h2 className="font-semibold">{session.plan_title}</h2>
+        <p className="text-sm text-neutral-600">
+          {session.school} · {session.grade}
+        </p>
+        <p className="text-xs text-neutral-500">
+          {session.session_date ? formatDate(session.session_date) : "—"}
+          {session.session_date2 ? ` · ${formatDate(session.session_date2)}` : ""}
+        </p>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] border-collapse text-sm">
+          <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
+            <tr>
+              <th className="px-3 py-2 font-semibold">Student</th>
+              <th className="px-3 py-2 font-semibold">S1</th>
+              {hasSession2 && (
+                <th className="px-3 py-2 font-semibold">S2</th>
+              )}
+              <th className="px-3 py-2 font-semibold">Assessment</th>
+              <th className="px-3 py-2 font-semibold">Right behaviour</th>
+            </tr>
+          </thead>
+          <tbody>
+            {session.students.map((student) => (
+              <tr
+                key={student.student_name}
+                className="border-t border-neutral-200"
+              >
+                <td className="px-3 py-2 font-medium">{student.student_name}</td>
+                <td className="px-3 py-2">
+                  <AttendanceBadge value={student.attendance_session1} />
+                </td>
+                {hasSession2 && (
+                  <td className="px-3 py-2">
+                    <AttendanceBadge value={student.attendance_session2} />
+                  </td>
+                )}
+                <td className="px-3 py-2">
+                  <ScoreBadge value={student.assessment} />
+                </td>
+                <td className="px-3 py-2">
+                  <ScoreBadge value={student.right_behavior} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="border-t border-neutral-200 bg-neutral-50 p-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          Class notes
+        </p>
+        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700">
+          {session.notes || (
+            <span className="text-neutral-400">No notes for this session.</span>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** Solid-colour read-only echo of the coach's P/A toggle. */
+function AttendanceBadge({ value }: { value: Attendance }) {
+  return (
+    <span
+      className={`inline-block min-w-[2.25rem] rounded-md px-2 py-1 text-center text-xs font-semibold text-white ${
+        value === "A" ? "bg-red-600" : "bg-emerald-600"
+      }`}
+    >
+      {value}
+    </span>
+  );
+}
+
+const SCORE_BADGE_TONE: Record<Score, string> = {
+  1: "bg-neutral-500",
+  2: "bg-sky-600",
+  3: "bg-indigo-600",
+  4: "bg-emerald-600",
+};
+
+/** Solid-colour read-only echo of the coach's 1–4 score buttons. */
+function ScoreBadge({ value }: { value: Score }) {
+  return (
+    <span
+      className={`inline-block w-7 rounded-md px-2 py-1 text-center text-xs font-semibold text-white ${SCORE_BADGE_TONE[value] ?? SCORE_BADGE_TONE[1]}`}
     >
       {value}
     </span>

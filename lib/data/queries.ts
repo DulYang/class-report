@@ -498,6 +498,7 @@ export async function getAllReportCards(): Promise<
     school: string;
     grade: string;
     session_date: string | null;
+    session_date2: string | null;
     notes: string;
   }[]
 > {
@@ -542,6 +543,7 @@ export async function getAllReportCards(): Promise<
       school: entry ? (schoolById.get(entry.school_id)?.name ?? "") : "",
       grade: student ? (gradeById.get(student.grade_id)?.name ?? "") : "",
       session_date: entry?.session_date1 ?? null,
+      session_date2: entry?.session_date2 ?? null,
       notes: notesByEntryGrade.get(`${card.syllabus_entry_id}:${gradeId}`) ?? "",
     };
   });
