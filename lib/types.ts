@@ -116,8 +116,20 @@ export type ReportCard = {
   attendance_session2: Attendance;
   assessment: Score;
   right_behavior: Score;
-  notes: string | null;
   created_at: string;
+  updated_at: string;
+};
+
+/**
+ * One shared note per (syllabus entry, grade) — the whole class session, not
+ * a single student. Written on the first class, editable again on the
+ * second.
+ */
+export type SessionNotes = {
+  id: string;
+  syllabus_entry_id: string;
+  grade_id: string;
+  notes: string;
   updated_at: string;
 };
 
@@ -148,7 +160,6 @@ export type ReportCardRow = {
   attendance_session2: Attendance;
   assessment: Score;
   right_behavior: Score;
-  notes: string;
   saved: boolean;
 };
 

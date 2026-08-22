@@ -257,9 +257,9 @@ export default async function ReportsPage({
                   </dd>
                 </div>
               </dl>
-              {row.card.notes && (
+              {row.notes && (
                 <p className="border-t border-neutral-100 pt-2 text-neutral-700">
-                  {row.card.notes}
+                  {row.notes}
                 </p>
               )}
             </div>
@@ -306,7 +306,7 @@ export default async function ReportsPage({
                     <ScorePill value={row.card.right_behavior} />
                   </td>
                   <td className="px-3 py-2 text-neutral-700">
-                    {row.card.notes || "—"}
+                    {row.notes || "—"}
                   </td>
                 </tr>
               ))}

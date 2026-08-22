@@ -15,6 +15,7 @@ import {
   type ScheduledSession,
   type School,
   type SchoolGrade,
+  type SessionNotes,
   type Student,
   type SyllabusEntry,
 } from "@/lib/types";
@@ -391,6 +392,7 @@ export async function getReportCardRows(
   grade: Grade | null;
   coaches: Coach[];
   rows: ReportCardRow[];
+  notes: string;
 } | null> {
   const supabase = await createClient();
 
@@ -403,24 +405,32 @@ export async function getReportCardRows(
   if (!entryRes.data) return null;
   const entry = entryRes.data as SyllabusEntry;
 
-  const [planRes, cardsRes, school, grade, studentsRes] = await Promise.all([
-    supabase
-      .from("lesson_plans")
-      .select("*")
-      .eq("id", entry.lesson_plan_id)
-      .maybeSingle(),
-    supabase.from("report_cards").select("*").eq("syllabus_entry_id", entryId),
-    getSchool(entry.school_id),
-    getGrade(gradeId),
-    supabase
-      .from("students")
-      .select("*")
-      .eq("school_id", entry.school_id)
-      .eq("grade_id", gradeId)
-      .order("name"),
-  ]);
+  const [planRes, cardsRes, notesRes, school, grade, studentsRes] =
+    await Promise.all([
+      supabase
+        .from("lesson_plans")
+        .select("*")
+        .eq("id", entry.lesson_plan_id)
+        .maybeSingle(),
+      supabase.from("report_cards").select("*").eq("syllabus_entry_id", entryId),
+      supabase
+        .from("session_notes")
+        .select("*")
+        .eq("syllabus_entry_id", entryId)
+        .eq("grade_id", gradeId)
+        .maybeSingle(),
+      getSchool(entry.school_id),
+      getGrade(gradeId),
+      supabase
+        .from("students")
+        .select("*")
+        .eq("school_id", entry.school_id)
+        .eq("grade_id", gradeId)
+        .order("name"),
+    ]);
   if (planRes.error) throw new Error(planRes.error.message);
   if (cardsRes.error) throw new Error(cardsRes.error.message);
+  if (notesRes.error) throw new Error(notesRes.error.message);
   if (studentsRes.error) throw new Error(studentsRes.error.message);
   if (!grade) return null;
 
@@ -467,12 +477,13 @@ export async function getReportCardRows(
       attendance_session2: card?.attendance_session2 ?? "P",
       assessment: toScore(card?.assessment),
       right_behavior: toScore(card?.right_behavior),
-      notes: card?.notes ?? "",
       saved: Boolean(card),
     };
   });
 
-  return { entry, plan, objectives, school, grade, coaches, rows };
+  const notes = (notesRes.data as SessionNotes | null)?.notes ?? "";
+
+  return { entry, plan, objectives, school, grade, coaches, rows, notes };
 }
 
 /** Admin reporting: every saved card, newest first, with names resolved. */
@@ -487,11 +498,12 @@ export async function getAllReportCards(): Promise<
     school: string;
     grade: string;
     session_date: string | null;
+    notes: string;
   }[]
 > {
   const supabase = await createClient();
-  const [cardsRes, students, entries, plans, schools, grades] = await Promise.all(
-    [
+  const [cardsRes, students, entries, plans, schools, grades, notesRows] =
+    await Promise.all([
       supabase
         .from("report_cards")
         .select("*")
@@ -501,8 +513,8 @@ export async function getAllReportCards(): Promise<
       getLessonPlans(),
       getSchools(),
       getGrades(),
-    ],
-  );
+      all<SessionNotes>("session_notes"),
+    ]);
   if (cardsRes.error) throw new Error(cardsRes.error.message);
 
   const studentById = new Map(students.map((s) => [s.id, s]));
@@ -510,22 +522,27 @@ export async function getAllReportCards(): Promise<
   const planById = new Map(plans.map((p) => [p.id, p]));
   const schoolById = new Map(schools.map((s) => [s.id, s]));
   const gradeById = new Map(grades.map((g) => [g.id, g]));
+  const notesByEntryGrade = new Map(
+    notesRows.map((n) => [`${n.syllabus_entry_id}:${n.grade_id}`, n.notes]),
+  );
 
   return ((cardsRes.data ?? []) as ReportCard[]).map((card) => {
     const student = studentById.get(card.student_id);
     const entry = entryById.get(card.syllabus_entry_id);
     const plan = entry ? planById.get(entry.lesson_plan_id) : undefined;
+    const gradeId = student?.grade_id ?? "";
 
     return {
       card,
       student_name: student?.name ?? "Unknown student",
       plan_title: plan?.title ?? "Unknown lesson plan",
       entry_id: card.syllabus_entry_id,
-      grade_id: student?.grade_id ?? "",
+      grade_id: gradeId,
       school_id: entry?.school_id ?? "",
       school: entry ? (schoolById.get(entry.school_id)?.name ?? "") : "",
       grade: student ? (gradeById.get(student.grade_id)?.name ?? "") : "",
       session_date: entry?.session_date1 ?? null,
+      notes: notesByEntryGrade.get(`${card.syllabus_entry_id}:${gradeId}`) ?? "",
     };
   });
 }

@@ -27,7 +27,7 @@ export default async function ReportCardPage({
   }
 
   if (!result) notFound();
-  const { entry, plan, objectives, school, grade, coaches, rows } = result;
+  const { entry, plan, objectives, school, grade, coaches, rows, notes } = result;
 
   // The coach picked their name on the weekly view; carry that identity
   // through so the save is attributed to them in the audit log.
@@ -77,7 +77,9 @@ export default async function ReportCardPage({
       ) : (
         <ReportCardGrid
           syllabusEntryId={entry.id}
+          gradeId={gradeId}
           initialRows={rows}
+          initialNotes={notes}
           session1Date={formatDate(entry.session_date1)}
           session2Date={
             entry.session_date2 ? formatDate(entry.session_date2) : null

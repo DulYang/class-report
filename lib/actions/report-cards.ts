@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { logAudit, reportCardActor } from "@/lib/audit";
-import { saveReportCards, type ReportCardInput } from "@/lib/data/mutations";
+import {
+  saveReportCards,
+  saveSessionNotes,
+  type ReportCardInput,
+} from "@/lib/data/mutations";
 import { toScore, type ActionResult, type Attendance } from "@/lib/types";
 
 function toAttendance(value: unknown): Attendance {
@@ -21,10 +25,13 @@ function toText(value: unknown): string {
  */
 export async function saveReportCardGrid(
   syllabusEntryId: string,
+  gradeId: string,
   rows: ReportCardInput[],
+  notes: string,
   coach?: { id: string | null; name: string | null },
 ): Promise<ActionResult> {
   if (!syllabusEntryId) return { ok: false, error: "Missing scheduled lesson." };
+  if (!gradeId) return { ok: false, error: "Missing grade." };
   if (!Array.isArray(rows) || rows.length === 0) {
     return { ok: false, error: "There are no students to save." };
   }
@@ -37,13 +44,17 @@ export async function saveReportCardGrid(
       attendance_session2: toAttendance(r.attendance_session2),
       assessment: toScore(r.assessment),
       right_behavior: toScore(r.right_behavior),
-      notes: toText(r.notes),
     }));
 
   if (clean.length === 0) return { ok: false, error: "No valid rows to save." };
 
   try {
     await saveReportCards(syllabusEntryId, clean);
+    await saveSessionNotes({
+      syllabus_entry_id: syllabusEntryId,
+      grade_id: gradeId,
+      notes: toText(notes),
+    });
   } catch (err) {
     return {
       ok: false,

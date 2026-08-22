@@ -9,7 +9,6 @@ export type ReportCardInput = {
   attendance_session2: Attendance;
   assessment: Score;
   right_behavior: Score;
-  notes: string;
 };
 
 /**
@@ -32,13 +31,35 @@ export async function saveReportCards(
     attendance_session2: r.attendance_session2,
     assessment: r.assessment,
     right_behavior: r.right_behavior,
-    notes: r.notes,
     updated_at: now,
   }));
 
   const { error } = await supabase
     .from("report_cards")
     .upsert(payload, { onConflict: "syllabus_entry_id,student_id" });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * The whole class's note for one scheduled session — shared across every
+ * student, not per student. Upsert on (syllabus_entry_id, grade_id) so it
+ * can be written on the first class and edited again on the second.
+ */
+export async function saveSessionNotes(input: {
+  syllabus_entry_id: string;
+  grade_id: string;
+  notes: string;
+}): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("session_notes").upsert(
+    {
+      syllabus_entry_id: input.syllabus_entry_id,
+      grade_id: input.grade_id,
+      notes: input.notes,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "syllabus_entry_id,grade_id" },
+  );
   if (error) throw new Error(error.message);
 }
 

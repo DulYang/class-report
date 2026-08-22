@@ -12,7 +12,9 @@ import {
 
 type Props = {
   syllabusEntryId: string;
+  gradeId: string;
   initialRows: ReportCardRow[];
+  initialNotes: string;
   session1Date: string;
   /** null when the entry only schedules one session. */
   session2Date: string | null;
@@ -22,20 +24,24 @@ type Props = {
 
 export default function ReportCardGrid({
   syllabusEntryId,
+  gradeId,
   initialRows,
+  initialNotes,
   session1Date,
   session2Date,
   coach,
 }: Props) {
   const [rows, setRows] = useState<ReportCardRow[]>(initialRows);
   const [baseline, setBaseline] = useState<ReportCardRow[]>(initialRows);
+  const [notes, setNotes] = useState(initialNotes);
+  const [notesBaseline, setNotesBaseline] = useState(initialNotes);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const dirty = useMemo(
-    () => JSON.stringify(rows) !== JSON.stringify(baseline),
-    [rows, baseline],
+    () => JSON.stringify(rows) !== JSON.stringify(baseline) || notes !== notesBaseline,
+    [rows, baseline, notes, notesBaseline],
   );
 
   const filledCount = baseline.filter((r) => r.saved).length;
@@ -52,14 +58,15 @@ export default function ReportCardGrid({
     startTransition(async () => {
       const result = await saveReportCardGrid(
         syllabusEntryId,
+        gradeId,
         rows.map((r) => ({
           student_id: r.student_id,
           attendance_session1: r.attendance_session1,
           attendance_session2: r.attendance_session2,
           assessment: r.assessment,
           right_behavior: r.right_behavior,
-          notes: r.notes,
         })),
+        notes,
         coach ? { id: coach.id, name: coach.name } : undefined,
       );
 
@@ -71,6 +78,7 @@ export default function ReportCardGrid({
       const saved = rows.map((r) => ({ ...r, saved: true }));
       setRows(saved);
       setBaseline(saved);
+      setNotesBaseline(notes);
       setSavedAt(
         new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       );
@@ -94,6 +102,28 @@ export default function ReportCardGrid({
           Couldn&apos;t save: {error}
         </div>
       )}
+
+      <div className="rounded-lg border border-neutral-200 bg-white p-3">
+        <FieldBlock label="Class notes">
+          <textarea
+            aria-label="Class notes"
+            value={notes}
+            placeholder="Notes for the whole class this session"
+            rows={3}
+            onChange={(e) => {
+              setNotes(e.target.value);
+              setSavedAt(null);
+            }}
+            className="w-full resize-y rounded-md border border-neutral-300 px-3 py-2 text-base focus:border-neutral-500 focus:outline-none"
+          />
+        </FieldBlock>
+        {session2Date && (
+          <p className="mt-1 text-xs text-neutral-500">
+            Shared for both {session1Date} and {session2Date} — edit it again
+            on the second class.
+          </p>
+        )}
+      </div>
 
       {/* Mobile: one card per student — a table this wide is unusable on a
           phone, and filling these in on a phone is the coach's whole job. */}
@@ -154,17 +184,6 @@ export default function ReportCardGrid({
                 />
               </FieldBlock>
             </div>
-
-            <FieldBlock label="Notes">
-              <textarea
-                aria-label={`${row.student_name} notes`}
-                value={row.notes}
-                placeholder="Notes"
-                rows={2}
-                onChange={(e) => update(row.student_id, { notes: e.target.value })}
-                className="w-full resize-y rounded-md border border-neutral-300 px-2 py-2 text-base focus:border-neutral-500 focus:outline-none"
-              />
-            </FieldBlock>
           </div>
         ))}
       </div>
@@ -180,7 +199,6 @@ export default function ReportCardGrid({
               )}
               <th className="px-3 py-2 font-semibold">Assessment</th>
               <th className="px-3 py-2 font-semibold">Right behaviour</th>
-              <th className="px-3 py-2 font-semibold">Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -224,18 +242,6 @@ export default function ReportCardGrid({
                     value={row.right_behavior}
                     label={`${row.student_name} right behaviour`}
                     onChange={(v) => update(row.student_id, { right_behavior: v })}
-                  />
-                </td>
-                <td className="px-3 py-2 align-top">
-                  <textarea
-                    aria-label={`${row.student_name} notes`}
-                    value={row.notes}
-                    placeholder="Notes"
-                    rows={2}
-                    onChange={(e) =>
-                      update(row.student_id, { notes: e.target.value })
-                    }
-                    className="w-full min-w-[200px] resize-y rounded-md border border-neutral-300 px-2 py-1.5 text-sm focus:border-neutral-500 focus:outline-none"
                   />
                 </td>
               </tr>
