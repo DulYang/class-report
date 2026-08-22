@@ -106,7 +106,7 @@ export async function updateStudentAction(
   return { ok: true };
 }
 
-/** Removing a student cascades to their report cards for every session. */
+/** Archives the student — their report cards for every session are untouched. */
 export async function deleteStudentAction(formData: FormData): Promise<void> {
   const admin = await getCurrentAdmin();
   if (!admin) return;
@@ -117,10 +117,10 @@ export async function deleteStudentAction(formData: FormData): Promise<void> {
   await deleteStudent(id);
   await logAudit({
     actor: adminActor(admin),
-    action: "student.delete",
+    action: "student.archive",
     entityType: "student",
     entityId: id,
-    summary: "Deleted a student",
+    summary: "Archived a student",
   });
 
   refresh();

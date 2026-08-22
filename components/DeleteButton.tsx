@@ -10,7 +10,7 @@ type Props = {
   className?: string;
 };
 
-/** Destructive submit with a confirm step, since deletes cascade. */
+/** Submit with a confirm step — some of these archive and cascade, others hard-delete. */
 export default function DeleteButton({
   action,
   hidden,

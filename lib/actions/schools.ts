@@ -104,7 +104,10 @@ export async function updateSchoolAction(
   return { ok: true };
 }
 
-/** Cascades to the school's grades, curricula, syllabus and report cards. */
+/**
+ * Archives the school along with its syllabus entries and students, so their
+ * report cards keep resolving names — nothing is actually deleted.
+ */
 export async function deleteSchoolAction(formData: FormData): Promise<void> {
   const admin = await getCurrentAdmin();
   if (!admin) return;
@@ -115,10 +118,10 @@ export async function deleteSchoolAction(formData: FormData): Promise<void> {
   await deleteSchool(id);
   await logAudit({
     actor: adminActor(admin),
-    action: "school.delete",
+    action: "school.archive",
     entityType: "school",
     entityId: id,
-    summary: "Deleted a school",
+    summary: "Archived a school",
   });
 
   refresh();
@@ -188,6 +191,10 @@ export async function updateGradeAction(
   return { ok: true };
 }
 
+/**
+ * Archives the grade along with its students, so their report cards keep
+ * resolving names — nothing is actually deleted.
+ */
 export async function deleteGradeAction(formData: FormData): Promise<void> {
   const admin = await getCurrentAdmin();
   if (!admin) return;
@@ -198,10 +205,10 @@ export async function deleteGradeAction(formData: FormData): Promise<void> {
   await deleteGrade(id);
   await logAudit({
     actor: adminActor(admin),
-    action: "grade.delete",
+    action: "grade.archive",
     entityType: "grade",
     entityId: id,
-    summary: "Deleted a grade",
+    summary: "Archived a grade",
   });
 
   refreshGrades();

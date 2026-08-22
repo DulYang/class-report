@@ -36,7 +36,7 @@ export default function StudentRow({
             action={deleteStudentAction}
             hidden={{ id: student.id }}
             label="Remove"
-            confirmMessage={`Remove ${student.name}? Their report cards for every session will be deleted too.`}
+            confirmMessage={`Remove ${student.name} from the roster? Their report cards already filled stay visible in Reports.`}
           />
         </div>
       </div>

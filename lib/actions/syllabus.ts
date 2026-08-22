@@ -128,7 +128,7 @@ export async function updateSyllabusEntryAction(
   return { ok: true };
 }
 
-/** Cascades to every report card filled against this scheduled session. */
+/** Archives the scheduled session — its report cards and class note are untouched. */
 export async function deleteSyllabusEntryAction(
   formData: FormData,
 ): Promise<void> {
@@ -141,10 +141,10 @@ export async function deleteSyllabusEntryAction(
   await deleteSyllabusEntry(id);
   await logAudit({
     actor: adminActor(admin),
-    action: "syllabus_entry.delete",
+    action: "syllabus_entry.archive",
     entityType: "syllabus_entry",
     entityId: id,
-    summary: "Deleted a scheduled session",
+    summary: "Archived a scheduled session",
   });
 
   refresh(field(formData, "school_id"));

@@ -66,7 +66,7 @@ export default async function AdminLessonPlanDetail({
             action={deleteLessonPlanAction}
             hidden={{ id: plan.id }}
             label="Delete this lesson plan"
-            confirmMessage={`Delete "${plan.title}"? Every grade pairing, its objectives, and any scheduled use — including saved report cards — will be deleted.`}
+            confirmMessage={`Archive "${plan.title}"? Every grade pairing and its objectives are removed, and any scheduled use disappears from active syllabuses. Report cards already filled stay visible in Reports.`}
           />
         </div>
       </section>

@@ -91,7 +91,7 @@ export default function GradeRow({ grade }: { grade: Grade }) {
           action={deleteGradeAction}
           hidden={{ id: grade.id }}
           label="Remove"
-          confirmMessage={`Remove ${grade.name}? It will be removed from every school offering it, and its curriculum pairings, students, and coach assignments will be deleted too.`}
+          confirmMessage={`Archive ${grade.name}? It disappears from every school offering it, and its curriculum pairings and coach assignments are removed. Its students are archived too, but their report cards already filled stay visible in Reports.`}
         />
       </div>
     </li>

@@ -34,9 +34,28 @@ async function all<T>(table: string, order?: string): Promise<T[]> {
   return (data ?? []) as T[];
 }
 
+/**
+ * Like `all`, but excludes archived rows — for tables with a `deleted_at`
+ * column. Use this for lists/pickers; historical reads that must keep
+ * resolving names for archived rows (report_cards, session_notes reporting)
+ * should call `all` directly instead.
+ */
+async function activeAll<T>(table: string, order?: string): Promise<T[]> {
+  const supabase = await createClient();
+  const query = supabase.from(table).select("*").is("deleted_at", null);
+  const { data, error } = order ? await query.order(order) : await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as T[];
+}
+
 // ── core tables ────────────────────────────────────────────────────────────
 
 export function getSchools(): Promise<School[]> {
+  return activeAll<School>("schools", "name");
+}
+
+/** Unfiltered — for historical reads (e.g. report reporting) that must keep resolving archived schools' names. */
+export function getSchoolsIncludingDeleted(): Promise<School[]> {
   return all<School>("schools", "name");
 }
 
@@ -52,6 +71,11 @@ export async function getSchool(id: string): Promise<School | null> {
 }
 
 export function getGrades(): Promise<Grade[]> {
+  return activeAll<Grade>("grades", "name");
+}
+
+/** Unfiltered — for historical reads that must keep resolving archived grades' names. */
+export function getGradesIncludingDeleted(): Promise<Grade[]> {
   return all<Grade>("grades", "name");
 }
 
@@ -85,6 +109,11 @@ export function getCurricula(): Promise<Curriculum[]> {
 }
 
 export function getLessonPlans(): Promise<LessonPlan[]> {
+  return activeAll<LessonPlan>("lesson_plans", "title");
+}
+
+/** Unfiltered — for historical reads that must keep resolving archived lesson plans' names. */
+export function getLessonPlansIncludingDeleted(): Promise<LessonPlan[]> {
   return all<LessonPlan>("lesson_plans", "title");
 }
 
@@ -100,6 +129,11 @@ export async function getLessonPlan(id: string): Promise<LessonPlan | null> {
 }
 
 export function getStudents(): Promise<Student[]> {
+  return activeAll<Student>("students", "name");
+}
+
+/** Unfiltered — for historical reads that must keep resolving archived students' names. */
+export function getStudentsIncludingDeleted(): Promise<Student[]> {
   return all<Student>("students", "name");
 }
 
@@ -198,6 +232,7 @@ export async function getSyllabus(
     .from("syllabus_entries")
     .select("*")
     .eq("school_id", schoolId)
+    .is("deleted_at", null)
     .order("session_date1");
   if (error) throw new Error(error.message);
   const entries = (data ?? []) as SyllabusEntry[];
@@ -257,7 +292,10 @@ export async function getWeeklySchedule(range?: {
       getSchoolGrades(),
     ]);
 
-  let entriesQuery = supabase.from("syllabus_entries").select("*");
+  let entriesQuery = supabase
+    .from("syllabus_entries")
+    .select("*")
+    .is("deleted_at", null);
   if (range) {
     // In the window if either session lands inside it.
     entriesQuery = entriesQuery.or(
@@ -426,6 +464,7 @@ export async function getReportCardRows(
         .select("*")
         .eq("school_id", entry.school_id)
         .eq("grade_id", gradeId)
+        .is("deleted_at", null)
         .order("name"),
     ]);
   if (planRes.error) throw new Error(planRes.error.message);
@@ -509,11 +548,11 @@ export async function getAllReportCards(): Promise<
         .from("report_cards")
         .select("*")
         .order("updated_at", { ascending: false }),
-      getStudents(),
+      getStudentsIncludingDeleted(),
       all<SyllabusEntry>("syllabus_entries"),
-      getLessonPlans(),
-      getSchools(),
-      getGrades(),
+      getLessonPlansIncludingDeleted(),
+      getSchoolsIncludingDeleted(),
+      getGradesIncludingDeleted(),
       all<SessionNotes>("session_notes"),
     ]);
   if (cardsRes.error) throw new Error(cardsRes.error.message);

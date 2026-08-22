@@ -98,7 +98,10 @@ export async function updateLessonPlanAction(
   return { ok: true };
 }
 
-/** Cascades to every grade pairing, its objectives, and syllabus use. */
+/**
+ * Archives the lesson plan along with its scheduled syllabus entries, so
+ * their report cards keep resolving names — nothing is actually deleted.
+ */
 export async function deleteLessonPlanAction(formData: FormData): Promise<void> {
   const admin = await getCurrentAdmin();
   if (!admin) return;
@@ -109,10 +112,10 @@ export async function deleteLessonPlanAction(formData: FormData): Promise<void> 
   await deleteLessonPlan(id);
   await logAudit({
     actor: adminActor(admin),
-    action: "lesson_plan.delete",
+    action: "lesson_plan.archive",
     entityType: "lesson_plan",
     entityId: id,
-    summary: "Deleted a lesson plan",
+    summary: "Archived a lesson plan",
   });
 
   refresh();

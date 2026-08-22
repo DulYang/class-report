@@ -42,7 +42,7 @@ export default function SyllabusEntryRow({
           <DeleteButton
             action={deleteSyllabusEntryAction}
             hidden={{ id: entry.id, school_id: entry.school_id }}
-            confirmMessage={`Unschedule "${plan?.title ?? "this lesson plan"}"? Every report card filled for this session, across every grade, will be deleted.`}
+            confirmMessage={`Unschedule "${plan?.title ?? "this lesson plan"}"? It disappears from the syllabus and weekly view. Report cards already filled for it stay visible in Reports.`}
           />
         </div>
       </div>

@@ -83,9 +83,47 @@ export async function updateSchool(id: string, input: SchoolInput): Promise<void
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Archives the school and everything under it that would otherwise cascade
+ * away: its syllabus entries and students are archived too (so their report
+ * cards keep resolving names), its coach assignments and grade offerings are
+ * dropped outright (they hold no history of their own). Grades themselves
+ * are untouched — they're a global catalog.
+ */
 export async function deleteSchool(id: string): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase.from("schools").delete().eq("id", id);
+  const now = new Date().toISOString();
+
+  const entries = await supabase
+    .from("syllabus_entries")
+    .update({ deleted_at: now })
+    .eq("school_id", id)
+    .is("deleted_at", null);
+  if (entries.error) throw new Error(entries.error.message);
+
+  const students = await supabase
+    .from("students")
+    .update({ deleted_at: now })
+    .eq("school_id", id)
+    .is("deleted_at", null);
+  if (students.error) throw new Error(students.error.message);
+
+  const assignments = await supabase
+    .from("coach_assignments")
+    .delete()
+    .eq("school_id", id);
+  if (assignments.error) throw new Error(assignments.error.message);
+
+  const offerings = await supabase
+    .from("school_grades")
+    .delete()
+    .eq("school_id", id);
+  if (offerings.error) throw new Error(offerings.error.message);
+
+  const { error } = await supabase
+    .from("schools")
+    .update({ deleted_at: now })
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 
@@ -103,9 +141,42 @@ export async function updateGrade(id: string, name: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Archives the grade and its students (so their report cards keep resolving
+ * names). Curricula (and their objectives, via the existing cascade), coach
+ * assignments, and school offerings for this grade are dropped outright —
+ * they hold no history of their own.
+ */
 export async function deleteGrade(id: string): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase.from("grades").delete().eq("id", id);
+  const now = new Date().toISOString();
+
+  const students = await supabase
+    .from("students")
+    .update({ deleted_at: now })
+    .eq("grade_id", id)
+    .is("deleted_at", null);
+  if (students.error) throw new Error(students.error.message);
+
+  const curricula = await supabase.from("curricula").delete().eq("grade_id", id);
+  if (curricula.error) throw new Error(curricula.error.message);
+
+  const assignments = await supabase
+    .from("coach_assignments")
+    .delete()
+    .eq("grade_id", id);
+  if (assignments.error) throw new Error(assignments.error.message);
+
+  const offerings = await supabase
+    .from("school_grades")
+    .delete()
+    .eq("grade_id", id);
+  if (offerings.error) throw new Error(offerings.error.message);
+
+  const { error } = await supabase
+    .from("grades")
+    .update({ deleted_at: now })
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 
@@ -213,9 +284,33 @@ export async function updateLessonPlan(id: string, title: string): Promise<void>
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Archives the lesson plan and its scheduled syllabus entries (so their
+ * report cards keep resolving names). Curricula (and their objectives, via
+ * the existing cascade) are dropped outright — they hold no history of
+ * their own.
+ */
 export async function deleteLessonPlan(id: string): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase.from("lesson_plans").delete().eq("id", id);
+  const now = new Date().toISOString();
+
+  const curricula = await supabase
+    .from("curricula")
+    .delete()
+    .eq("lesson_plan_id", id);
+  if (curricula.error) throw new Error(curricula.error.message);
+
+  const entries = await supabase
+    .from("syllabus_entries")
+    .update({ deleted_at: now })
+    .eq("lesson_plan_id", id)
+    .is("deleted_at", null);
+  if (entries.error) throw new Error(entries.error.message);
+
+  const { error } = await supabase
+    .from("lesson_plans")
+    .update({ deleted_at: now })
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 
@@ -294,9 +389,13 @@ export async function updateSyllabusEntry(
   if (error) throw new Error(error.message);
 }
 
+/** Archives the scheduled session; its report cards and class note are untouched. */
 export async function deleteSyllabusEntry(id: string): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase.from("syllabus_entries").delete().eq("id", id);
+  const { error } = await supabase
+    .from("syllabus_entries")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 
@@ -326,8 +425,12 @@ export async function updateStudent(
   if (error) throw new Error(error.message);
 }
 
+/** Archives the student; their report cards are untouched. */
 export async function deleteStudent(id: string): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase.from("students").delete().eq("id", id);
+  const { error } = await supabase
+    .from("students")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }

@@ -103,7 +103,7 @@ export default async function AdminSchoolDetail({
             action={deleteSchoolAction}
             hidden={{ id: school.id }}
             label="Delete this school"
-            confirmMessage={`Delete "${school.name}"? Its syllabus, students, coach assignments and every report card underneath will be deleted. Its grades are not affected — they belong to the global catalog.`}
+            confirmMessage={`Archive "${school.name}"? Its syllabus and students disappear from active use, and its coach assignments and grade offerings are removed. Report cards already filled stay visible in Reports. Its grades are not affected — they belong to the global catalog.`}
           />
         </div>
       </section>

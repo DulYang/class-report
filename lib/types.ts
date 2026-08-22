@@ -28,12 +28,16 @@ export type School = {
   pic_name: string | null;
   pic_phone: string | null;
   created_at: string;
+  /** Archived, not gone — "delete" preserves report card history underneath. */
+  deleted_at: string | null;
 };
 
 export type Grade = {
   id: string;
   name: string;
   created_at: string;
+  /** Archived, not gone — "delete" preserves report card history underneath. */
+  deleted_at: string | null;
 };
 
 /** Which grades a school runs — admin-managed, independent of enrollment. */
@@ -73,6 +77,8 @@ export type LessonPlan = {
   id: string;
   title: string;
   created_at: string;
+  /** Archived, not gone — "delete" preserves report card history underneath. */
+  deleted_at: string | null;
 };
 
 /**
@@ -97,6 +103,8 @@ export type SyllabusEntry = {
   session_date1: string;
   session_date2: string | null;
   created_at: string;
+  /** Archived, not gone — "delete" preserves report card history underneath. */
+  deleted_at: string | null;
 };
 
 /** Students belong to a school and a grade — there is no class. */
@@ -106,6 +114,8 @@ export type Student = {
   grade_id: string;
   name: string;
   created_at: string;
+  /** Archived, not gone — "delete" preserves report card history underneath. */
+  deleted_at: string | null;
 };
 
 export type ReportCard = {

@@ -2,9 +2,10 @@
 
 Migrations `0002`–`0007` built the admin domain, removed classes, and then
 reshaped curriculum. Migration `0009` then disassociated grades from schools.
-A student belongs to a **school and a grade**; a coach is assigned to a
-(school, grade) pair and inherits every session scheduled for it. There is no
-class.
+Migration `0011` made `schools`, `grades`, `lesson_plans`, `students`, and
+`syllabus_entries` soft-delete (see **Soft delete** below). A student belongs
+to a **school and a grade**; a coach is assigned to a (school, grade) pair and
+inherits every session scheduled for it. There is no class.
 
 **Curriculum is a lesson plan paired with a grade — nothing else.** A
 `lesson_plan` is a plain, reusable, grade-agnostic title. `curricula` is the
@@ -20,10 +21,13 @@ keyed by (syllabus entry, grade), not just the entry.
 | field | type |
 |---|---|
 | id | uuid pk |
-| name | text not null unique |
+| name | text not null |
 | pic_name | text — person in charge |
 | pic_phone | text |
 | created_at | timestamptz default now() |
+| deleted_at | timestamptz nullable — soft delete |
+
+**Unique**: (name) while `deleted_at is null` — archiving frees the name for reuse.
 
 ### grades
 | field | type |
@@ -31,10 +35,11 @@ keyed by (syllabus entry, grade), not just the entry.
 | id | uuid pk |
 | name | text not null |
 | created_at | timestamptz default now() |
+| deleted_at | timestamptz nullable — soft delete |
 
-**Unique**: (name). A global catalog — "Grade 5" is one row, shared by every
-school. A grade has no relationship to a school on its own; see
-`school_grades` for which schools actually run it.
+**Unique**: (name) while `deleted_at is null`. A global catalog — "Grade 5" is
+one row, shared by every school. A grade has no relationship to a school on
+its own; see `school_grades` for which schools actually run it.
 
 ### school_grades
 | field | type |
@@ -56,6 +61,7 @@ per school, and what the students/coach-assignment pickers filter to.
 | id | uuid pk |
 | title | text not null |
 | created_at | timestamptz default now() |
+| deleted_at | timestamptz nullable — soft delete |
 
 A plain, reusable catalog entry — no grade, no dates, no owner.
 
@@ -107,10 +113,11 @@ session then shows under each of them.
 | session_date1 | date not null |
 | session_date2 | date (nullable — a session may be single) |
 | created_at | timestamptz default now() |
+| deleted_at | timestamptz nullable — soft delete |
 
-**Unique**: (school_id, lesson_plan_id, session_date1). No grade column —
-scheduling a lesson plan means every grade that school *offers* (via
-`school_grades`) studies it that day.
+**Unique**: (school_id, lesson_plan_id, session_date1) while `deleted_at is
+null`. No grade column — scheduling a lesson plan means every grade that
+school *offers* (via `school_grades`) studies it that day.
 
 ## Coach-facing
 
@@ -134,6 +141,7 @@ Only admins sign in; `user_id` is null for coaches.
 | grade_id | uuid not null → grades.id |
 | name | text not null |
 | created_at | timestamptz default now() |
+| deleted_at | timestamptz nullable — soft delete |
 
 A student is tied to a school and a grade, never to a class.
 
@@ -174,6 +182,30 @@ that grade, the objectives panel is simply empty.
 **Whose weekly view it appears in**: any coach with a `coach_assignments` row
 for that (school, grade). Sessions with no assigned coach are still listed,
 under "No coach assigned", so they are never hidden.
+
+## Soft delete
+`schools`, `grades`, `lesson_plans`, `students`, and `syllabus_entries` are
+never hard-deleted by the app — "delete" sets `deleted_at` instead, so every
+FK chain underneath (down to `report_cards` and `session_notes`) keeps
+resolving names instead of being wiped out by `ON DELETE CASCADE`. Deleting
+one of these cascades the same archive to whatever it used to cascade-delete:
+a school archives its syllabus entries and students; a grade archives its
+students; a lesson plan archives its syllabus entries.
+
+`coach_assignments`, `school_grades`, and `curricula` (→ `assessment_objectives`
+via its own `ON DELETE CASCADE`) are **not** soft-deleted — nothing in
+`report_cards` points at them, so they're hard-deleted as part of the same
+archive action (the app does this explicitly now, since the parent row is no
+longer actually deleted and the CASCADE FK never fires).
+
+Every "active" list/picker query filters `deleted_at is null`
+(`lib/data/queries.ts`'s `activeAll` helper). By-id lookups
+(`getSchool`, `getGrade`, `getLessonPlan`) and the admin Reports queries
+(`getSchoolsIncludingDeleted` etc.) stay unfiltered on purpose, so a report
+card whose school/grade/plan/entry was later archived still shows the real
+name instead of "Unknown."
+
+There is no restore/undelete UI yet — archiving is one-directional for now.
 
 ## RLS
 - **Read**: open on every table — the coach app has no login.
