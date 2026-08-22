@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BulkImportStudents from "@/components/forms/BulkImportStudents";
 import StudentForm from "@/components/forms/StudentForm";
 import StudentRow from "@/components/StudentRow";
 import { getGrades, getRoster, getSchoolGrades, getSchools } from "@/lib/data/queries";
@@ -79,6 +80,17 @@ export default async function AdminStudentsPage() {
           <StudentForm schools={schools} grades={grades} schoolGrades={schoolGrades} />
         )}
       </section>
+
+      {schools.length > 0 && (
+        <section className="rounded-lg border border-neutral-200 bg-white p-4">
+          <h2 className="mb-3 font-semibold">Import from CSV</h2>
+          <BulkImportStudents
+            schools={schools}
+            grades={grades}
+            schoolGrades={schoolGrades}
+          />
+        </section>
+      )}
 
       {roster.length === 0 ? (
         <p className="rounded-lg border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-600">

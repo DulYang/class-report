@@ -430,6 +430,16 @@ export async function updateStudent(
   if (error) throw new Error(error.message);
 }
 
+/** Bulk insert for CSV import — one round trip for the whole file. */
+export async function createStudents(
+  inputs: { school_id: string; grade_id: string; name: string }[],
+): Promise<void> {
+  if (inputs.length === 0) return;
+  const supabase = await createClient();
+  const { error } = await supabase.from("students").insert(inputs);
+  if (error) throw new Error(error.message);
+}
+
 /** Archives the student; their report cards are untouched. */
 export async function deleteStudent(id: string): Promise<void> {
   const supabase = await createClient();
