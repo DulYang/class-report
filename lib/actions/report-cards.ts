@@ -49,7 +49,7 @@ export async function saveReportCardGrid(
   if (clean.length === 0) return { ok: false, error: "No valid rows to save." };
 
   try {
-    await saveReportCards(syllabusEntryId, clean);
+    await saveReportCards(syllabusEntryId, gradeId, clean);
     await saveSessionNotes({
       syllabus_entry_id: syllabusEntryId,
       grade_id: gradeId,

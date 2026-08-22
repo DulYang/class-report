@@ -309,11 +309,11 @@ export async function getWeeklySchedule(range?: {
   if (entriesRes.error) throw new Error(entriesRes.error.message);
   const entries = (entriesRes.data ?? []) as SyllabusEntry[];
 
-  let cards: { syllabus_entry_id: string; student_id: string }[] = [];
+  let cards: { syllabus_entry_id: string; grade_id: string }[] = [];
   if (entries.length > 0) {
     const cardsRes = await supabase
       .from("report_cards")
-      .select("syllabus_entry_id, student_id")
+      .select("syllabus_entry_id, grade_id")
       .in(
         "syllabus_entry_id",
         entries.map((e) => e.id),
@@ -325,7 +325,6 @@ export async function getWeeklySchedule(range?: {
   const schoolById = new Map(schools.map((s) => [s.id, s]));
   const gradeById = new Map(grades.map((g) => [g.id, g]));
   const planById = new Map(plans.map((p) => [p.id, p]));
-  const studentGradeById = new Map(students.map((s) => [s.id, s.grade_id]));
 
   const gradesBySchool = new Map<string, Grade[]>();
   for (const sg of schoolGrades) {
@@ -344,9 +343,7 @@ export async function getWeeklySchedule(range?: {
 
   const filledByEntryGrade = new Map<string, number>();
   for (const card of cards) {
-    const gradeId = studentGradeById.get(card.student_id);
-    if (!gradeId) continue;
-    const key = `${card.syllabus_entry_id}:${gradeId}`;
+    const key = `${card.syllabus_entry_id}:${card.grade_id}`;
     filledByEntryGrade.set(key, (filledByEntryGrade.get(key) ?? 0) + 1);
   }
 
@@ -570,7 +567,9 @@ export async function getAllReportCards(): Promise<
     const student = studentById.get(card.student_id);
     const entry = entryById.get(card.syllabus_entry_id);
     const plan = entry ? planById.get(entry.lesson_plan_id) : undefined;
-    const gradeId = student?.grade_id ?? "";
+    // The grade the student was actually in when this was saved — not their
+    // (possibly since-promoted) current grade.
+    const gradeId = card.grade_id;
 
     return {
       card,
@@ -580,7 +579,7 @@ export async function getAllReportCards(): Promise<
       grade_id: gradeId,
       school_id: entry?.school_id ?? "",
       school: entry ? (schoolById.get(entry.school_id)?.name ?? "") : "",
-      grade: student ? (gradeById.get(student.grade_id)?.name ?? "") : "",
+      grade: gradeById.get(gradeId)?.name ?? "",
       session_date: entry?.session_date1 ?? null,
       session_date2: entry?.session_date2 ?? null,
       notes: notesByEntryGrade.get(`${card.syllabus_entry_id}:${gradeId}`) ?? "",

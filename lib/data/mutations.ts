@@ -15,9 +15,13 @@ export type ReportCardInput = {
  * Save the whole grid in one round trip. Upsert on
  * (syllabus_entry_id, student_id) so a coach can fill a fresh roster and later
  * edit the same rows without caring which students already had a card.
+ * `gradeId` is frozen onto every row as the grade the student was actually in
+ * this session — not re-derived from the student's (possibly later promoted)
+ * current grade.
  */
 export async function saveReportCards(
   syllabusEntryId: string,
+  gradeId: string,
   rows: ReportCardInput[],
 ): Promise<void> {
   if (rows.length === 0) return;
@@ -26,6 +30,7 @@ export async function saveReportCards(
 
   const payload = rows.map((r) => ({
     syllabus_entry_id: syllabusEntryId,
+    grade_id: gradeId,
     student_id: r.student_id,
     attendance_session1: r.attendance_session1,
     attendance_session2: r.attendance_session2,

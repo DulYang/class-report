@@ -122,6 +122,8 @@ export type ReportCard = {
   id: string;
   syllabus_entry_id: string;
   student_id: string;
+  /** The grade the student was actually in when this was saved — frozen, not re-derived from the student's current grade. */
+  grade_id: string;
   attendance_session1: Attendance;
   attendance_session2: Attendance;
   assessment: Score;

@@ -151,16 +151,33 @@ A student is tied to a school and a grade, never to a class.
 | id | uuid pk |
 | syllabus_entry_id | uuid not null → syllabus_entries.id |
 | student_id | uuid not null → students.id |
+| grade_id | uuid not null → grades.id |
 | attendance_session1 | text default 'P' (P or A) |
 | attendance_session2 | text default 'P' (P or A) |
 | assessment | integer not null default 1, check 1–4 |
 | right_behavior | integer not null default 1, check 1–4 |
-| notes | text |
 | created_at / updated_at | timestamptz default now() |
 
 **Unique**: (syllabus_entry_id, student_id) — one card per student per
 scheduled session. Assessment and right behaviour are scores from 1 to 4,
 defaulting to 1; the database rejects anything outside that range.
+`grade_id` is frozen at save time to the grade the student was actually in —
+it is **not** re-derived from the student's current grade, so promoting a
+student to a new grade never rewrites their past report cards. There is no
+per-student `notes` column; see `session_notes` below.
+
+### session_notes
+| field | type |
+|---|---|
+| id | uuid pk |
+| syllabus_entry_id | uuid not null → syllabus_entries.id |
+| grade_id | uuid not null → grades.id |
+| notes | text not null default '' |
+| updated_at | timestamptz default now() |
+
+**Unique**: (syllabus_entry_id, grade_id) — one shared note for the whole
+class session, not per student. Written on the first class, editable again on
+the second. Open write, same as `report_cards`.
 
 ## Relationships
 ```
@@ -209,10 +226,11 @@ There is no restore/undelete UI yet — archiving is one-directional for now.
 
 ## RLS
 - **Read**: open on every table — the coach app has no login.
-- **Write**: `report_cards` is open — that is the coach's job and they do not
-  sign in. `schools`, `grades`, `school_grades`, `curricula`, `lesson_plans`,
-  `assessment_objectives`, `syllabus_entries`, `coaches`, `coach_assignments`
-  and `students` all require `private.is_admin()`. RLS is defined per table, so
+- **Write**: `report_cards` and `session_notes` are open — that is the coach's
+  job and they do not sign in. `schools`, `grades`, `school_grades`,
+  `curricula`, `lesson_plans`, `assessment_objectives`, `syllabus_entries`,
+  `coaches`, `coach_assignments` and `students` all require
+  `private.is_admin()`. RLS is defined per table, so
   reshaping curriculum's columns in 0007 needed no policy changes — verified
   live: anon `INSERT` into `lesson_plans` and `curricula` still returns 42501.
 - **Bootstrap**: `coaches` also allows an insert while
